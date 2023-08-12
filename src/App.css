@@ -1,0 +1,57 @@
+:root {
+    --text: #080708;
+    --background: #EFECEF;
+    --primary: #4962A8;
+    --secondary: #C5CCE4;
+}
+
+.App {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: var(--background); /* Light gray background */
+  color: var(--text); /* Dark gray text color */
+}
+
+.App-header {
+  text-align: center;
+  align-content: center;
+}
+
+.main-container {
+  padding: 20px;
+  max-width: 1200px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.flex-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.right-section {
+  padding-left: 25px;
+}
+
+.left-section,
+.right-section {
+  width: 50%;
+  box-sizing: border-box;
+}
+
+.left-section::after,
+.right-section::after {
+  display: table;
+  clear: both;
+}
+
+.error-message {
+  background-color: #ffcccc; /* Light red background color */
+  border: 1px solid #cc0000; /* Dark red border */
+  color: #cc0000; /* Dark red text color */
+}

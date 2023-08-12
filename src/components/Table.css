@@ -1,0 +1,106 @@
+
+/* Basic styling for the table */
+table {
+    width: 90%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    margin-left: 20px;
+    background-color: var(--background);
+}
+  
+th,
+td {
+    border: 1px solid var(--secondary);
+    padding: 8px;
+    text-align: left;
+    font-size: 15px;
+    vertical-align: middle;
+    color: var(--text);
+}
+  
+th {
+    background-color: var(--secondary);
+}
+
+/* Styling for the input fields */
+input[type="number"] {
+    width: 80%;
+    padding: 5px;
+    border: none;
+    outline: none;
+    background-color: transparent;
+    margin: 0px;
+    font-size: 15px;
+    text-align: left;
+    vertical-align: middle;
+    color: var(--text);
+}
+
+input[type="text"] {
+    flex: 0 1 auto;
+    margin-left: 10px;
+    margin-right: 5px;
+    font-size: 22px;
+    padding: 3px;
+}
+
+td:nth-child(2) {
+    width: 50px;
+}
+
+button {
+    font-size: 20px;
+    padding: 8px 16px;
+    margin-left: 10px;
+    background-color: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.inputCell {
+    padding: 3px;
+}
+
+.ticker-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 35px;
+    font-size: 25px;
+    font-weight: bold;
+}
+
+.tooltip {
+    position: relative;
+    cursor: pointer;
+}
+
+.tooltip::after {
+    content: '?';
+    position: absolute;
+    margin-left: 4px;
+    width: 20px;
+    height: 20px;
+    background-color: transparent;
+    border: 1px solid #ccc;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 18px;
+}
+
+.tooltip:hover::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: -25px;
+    left: 25px;
+    padding: 5px;
+    background-color: #333;
+    color: #fff;
+    border-radius: 4px;
+    opacity: 0.9;
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+  }
