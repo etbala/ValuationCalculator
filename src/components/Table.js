@@ -9,7 +9,6 @@ const Table = ({ setError }) => {
     const [FY1_input, setFY1] = useState(0);
     const [FY2_input, setFY2] = useState(0);
     const [plowback_rate_input, setPlowbackRate] = useState(0);
-    const [beta_input, setBeta] = useState(0);
     const [risk_premium_input, setRiskPremium] = useState(0);
     const [growth_rate_input, setGrowthRate] = useState(0);
 
@@ -25,6 +24,7 @@ const Table = ({ setError }) => {
     const [debt, setDebt] = useState(0);
     const [cash, setCash] = useState(0);
     const [risk_free_rate, setRiskFreeRate] = useState(0);
+    const [beta, setBeta] = useState(0);
     const [adjusted_beta, setAdjustedBeta] = useState(0);
     const [cost_of_equity, setCostOfEquity] = useState(0);
     const [intrinsic_value_of_equity_per_share_dfc, setIntrinsicValue] = useState(0);
@@ -34,16 +34,18 @@ const Table = ({ setError }) => {
     const [debt_unit, setDebtUnit] = useState("");
     const [cash_unit, setCashUnit] = useState("");
     
+    let getting_values = false;
+    let growth_rate_changed = false;
 
     // Scraped Values
     /*let stock_price = 0;
     let shares = 0;
     let monthsToFYE = 0;
     let book_value = 0;
+    let beta = 0;
     let debt = 0;
     let cash = 0;
     let fy0 = 0;*/
-    let beta = 0;
     let fy1 = 0;
     let fy2 = 0;
 
@@ -107,14 +109,15 @@ const Table = ({ setError }) => {
             fy1 = FY1_input;
             fy2 = FY2_input;
             plowback_rate = plowback_rate_input;
-            beta = beta_input;
-            risk_premium = risk_premium_input;
+            risk_premium = risk_premium_input/100;
+
+            if(growth_rate !== growth_rate_input/100) {
+                growth_rate_changed = true;
+            }
             growth_rate = growth_rate_input;
 
             calculateValues();
         }
-
-        
     };
 
     const handleKeyDown = (event) => {
@@ -126,9 +129,12 @@ const Table = ({ setError }) => {
 
     // Function to recalculate values based on user inputs
     const calculateValues = () => {
+        //Convert Percentage Input Values
+        
+
         // Computing Cost of Equity
-        setAdjustedBeta((1/3) + (2/3) * beta);
-        setCostOfEquity(adjusted_beta * risk_premium + risk_free_rate);
+        //setAdjustedBeta((1/3) + (2/3) * beta);
+        setCostOfEquity((adjusted_beta * risk_premium + risk_free_rate).toFixed(3));
 
         /*
         // Date Handling
@@ -150,8 +156,10 @@ const Table = ({ setError }) => {
             monthsToFYE = fiscal_month - current_month;
         }
         */
+        if(!growth_rate_changed) {
+            setGrowthRate(fy2/fy1-1);
+        }
 
-        setGrowthRate(fy2/fy1-1);
         setFe0((monthsToFYE/12) * fy0 + ((1 - (monthsToFYE/12)) * fy1));
         setFe1((monthsToFYE/12) * fy1 + ((1 - (monthsToFYE/12)) * fy2));
         setFe2(fe1 * (1 + growth_rate));
@@ -204,17 +212,18 @@ const Table = ({ setError }) => {
 
     const getValues = async () => {
         const url = 'https://iumt93w93d.execute-api.us-east-1.amazonaws.com/default/valuation-backend-dev-hello?ticker=' + ticker;
+        getting_values = true;
 
         try {
             const response = await axios.get(url);
             const data = response.data;
+            getting_values = false;
 
             setFY1(data["fy1"].toFixed(2));
             setFY2(data["fy2"].toFixed(2));
             setGrowthRate(data["growth_rate"]*100);
             setPlowbackRate(data["plowback_rate"].toFixed(2));
             setRiskPremium(data["risk_premium"]*100);
-            
             setFy0(data["fy0"].toFixed(2));
             setMonthsToFYE(parseInt(data["monthsToFYE"]));
             setFe0(data["fe0"].toFixed(2));
@@ -249,17 +258,7 @@ const Table = ({ setError }) => {
             } else {
                 setError("Unkown Backend Error");
             }
-        }        
-    };
-
-    const calculateUnits = (value) => {
-        const units = ['', 'thousands', 'millions', 'billions', 'trillions'];
-        const index = Math.floor(Math.log10(Math.abs(value)) / 3);
-        const scaledValue = (value / Math.pow(10, index * 3));
-        return {
-            value: scaledValue,
-            unit: units[index]
-        };
+        }      
     };
 
     return (
