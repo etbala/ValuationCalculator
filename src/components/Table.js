@@ -211,7 +211,8 @@ const Table = ({ setError }) => {
     };
 
     const getValues = async () => {
-        const url = 'https://iumt93w93d.execute-api.us-east-1.amazonaws.com/default/valuation-backend-dev-hello?ticker=' + ticker;
+        //const url = 'https://iumt93w93d.execute-api.us-east-1.amazonaws.com/default/valuation-backend-dev-hello?ticker=' + ticker;
+        const url = "/api/?ticker=" + ticker;
         getting_values = true;
 
         try {
@@ -259,6 +260,16 @@ const Table = ({ setError }) => {
                 setError("Unkown Backend Error");
             }
         }      
+    };
+
+    const calculateUnits = (value) => {
+        const units = ['', 'thousands', 'millions', 'billions', 'trillions'];
+        const index = Math.floor(Math.log10(Math.abs(value)) / 3);
+        const scaledValue = (value / Math.pow(10, index * 3));
+        return {
+            value: scaledValue,
+            unit: units[index]
+        };
     };
 
     return (
