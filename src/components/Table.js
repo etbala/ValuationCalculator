@@ -45,16 +45,52 @@ const Table = ({ setError }) => {
     const [value_of_equity_unit, setValueOfEquityUnit] = useState("");
     const [firm_value_unit, setFirmValueUnit] = useState("");
     const [enterprise_value_unit, setEnterpriseValueUnit] = useState("");
-    
-    let prev_response = null;
 
-    let getting_values = false;
+
+    const [alt_fy0, setAltFy0] = useState(0);
+    const [alt_fy1, setAltFy1] = useState(0);
+    const [alt_fy2, setAltFy2] = useState(0);
+    const [alt_monthsToFYE, setAltMonthsToFYE] = useState(0);
+    const [alt_fe0, setAltFe0] = useState(0);
+    const [alt_fe1, setAltFe1] = useState(0);
+    const [alt_fe2, setAltFe2] = useState(0);
+    const [alt_growth_rate_input, setAltGrowthRate] = useState(0);
+    const [alt_plowback_rate, setAltPlowbackRate] = useState(0);
+    const [alt_eps_growth, setAltEpsGrowth] = useState(0);
+    const [alt_book_value, setAltBookValue] = useState(0);
+    const [alt_stock_price, setAltStockPrice] = useState(0);
+    const [alt_shares, setAltShares] = useState(0);
+    const [alt_debt, setAltDebt] = useState(0);
+    const [alt_cash, setAltCash] = useState(0);
+    const [alt_risk_free_rate, setAltRiskFreeRate] = useState(0);
+    const [alt_beta, setAltBeta] = useState(0);
+    const [alt_adjusted_beta, setAltAdjustedBeta] = useState(0);
+    const [alt_risk_premium, setAltRiskPremium] = useState(0);
+    const [alt_cost_of_equity, setAltCostOfEquity] = useState(0);
+    const [alt_intrinsic_value_of_equity_per_share_dfc, setAltIntrinsicValue] = useState(0);
+    const [alt_profit_volume_ratio, setAltProfitVolumeRatio] = useState(0);
+    const [alt_assets_in_place_value, setAltAssetsInPlace] = useState(0);
+    const [alt_pvgo, setAltPVGO] = useState(0);
+    const [alt_value_of_equity, setAltValueOfEquity] = useState(0);
+    const [alt_total_firm_value, setAltFirmValue] = useState(0);
+    const [alt_total_enterprise_value, setAltEnterpriseValue] = useState(0);
+
+    const [alt_shares_unit, setAltSharesUnit] = useState("");
+    const [alt_debt_unit, setAltDebtUnit] = useState("");
+    const [alt_cash_unit, setAltCashUnit] = useState("");
+    const [alt_value_of_equity_unit, setAltValueOfEquityUnit] = useState("");
+    const [alt_firm_value_unit, setAltFirmValueUnit] = useState("");
+    const [alt_enterprise_value_unit, setAltEnterpriseValueUnit] = useState("");
+
+    const [getting_values, setGettingValues] = useState(false);
+
     let growth_rate_changed = false;
 
     let fy1 = 0;
     let fy2 = 0;
     let risk_premium = 5.00;
     let growth_rate = 0;
+    let alt_growth_rate = 0;
     let plowback_rate = 0;
 
     // Discounted Cash Flow Calculations (15 Transition Years)
@@ -88,7 +124,8 @@ const Table = ({ setError }) => {
     }
 
     const run = () => {
-        if(ticker_input === ticker && getting_values === false) {
+        if(ticker_input === ticker && getting_values === false && ticker !== "") {
+            console.log("Getting_values: " + getting_values);
             if(FY1_input <= 0 || FY2_input <= 0) {
                 setError("Unable to value firm due to negative values for FY1 or FY2");
                 return;
@@ -132,64 +169,42 @@ const Table = ({ setError }) => {
 
     const restore = () => {
         setStatus("Restoring...");
-
-        setBaseTicker(ticker_input);
-        getValues();
-        return;
         
-        if(prev_response == null) {
-            setStatus("Nothing to Restore.");
-            return;
-        }
+        setFY1(alt_fy1);
+        setFY2(alt_fy2);
+        setGrowthRate(alt_growth_rate_input);
+        growth_rate = alt_growth_rate;
+        setPlowbackRate(alt_plowback_rate);
+        setRiskPremium(alt_risk_premium);
+        setFy0(alt_fy0);
+        setMonthsToFYE(alt_monthsToFYE);
+        setFe0(alt_fe0);
+        setFe1(alt_fe1);
+        setFe2(alt_fe2);
+        setEpsGrowth(alt_eps_growth);
+        setBookValue(alt_book_value);
+        setStockPrice(alt_stock_price);
+        setRiskFreeRate(alt_risk_free_rate);
+        setBeta(alt_beta);
+        setAdjustedBeta(alt_adjusted_beta);
+        setCostOfEquity(alt_cost_of_equity);
+        setIntrinsicValue(alt_intrinsic_value_of_equity_per_share_dfc);
+        setProfitVolumeRatio(alt_profit_volume_ratio);
+        setAssetsInPlace(alt_assets_in_place_value);
+        setPVGO(alt_pvgo);
 
-        
-        
-        setFY1(prev_response["fy1"]);
-        setFY2(prev_response["fy2"]);
-        setGrowthRate(prev_response["growth_rate"]*100);
-        growth_rate = prev_response["growth_rate"];
-        setPlowbackRate(prev_response["plowback_rate"]);
-        setRiskPremium(prev_response["risk_premium"]*100);
-        setFy0(prev_response["fy0"]);
-        setMonthsToFYE(parseInt(prev_response["monthsToFYE"]));
-        setFe0(prev_response["fe0"]);
-        setFe1(prev_response["fe1"]);
-        setFe2(prev_response["fe2"]);
-        setEpsGrowth(prev_response["eps_growth"]);
-        setBookValue(prev_response["book_value"]);
-        setStockPrice(prev_response["stock_price"]);
-        setRiskFreeRate(prev_response["risk_free_rate"]);
-        setBeta(prev_response["beta"]);
-        setAdjustedBeta(prev_response["adjusted_beta"]);
-        setCostOfEquity(prev_response["cost_of_equity"]);
-        setIntrinsicValue(parseFloat(prev_response["intrinsic_equity_per_share"]));
-        setProfitVolumeRatio(parseFloat(prev_response["profit_volume_ratio"]));
-        setAssetsInPlace(parseFloat(prev_response["assets_in_place"]));
-        setPVGO(parseFloat(prev_response["pvgo"]));
-
-        const sharesData = calculateUnits(parseInt(prev_response["shares"]));
-        setShares(sharesData.value);
-        setSharesUnit(sharesData.unit);
-
-        const debtData = calculateUnits(parseInt(prev_response["debt"]));
-        setDebt(debtData.value);
-        setDebtUnit(debtData.unit);
-
-        const cashData = calculateUnits(parseInt(prev_response["cash"]));
-        setCash(cashData.value);
-        setCashUnit(cashData.unit);
-
-        const equityValueData = calculateUnits(parseFloat(prev_response["value_of_equity"]));
-        setValueOfEquity(equityValueData.value.toFixed(2));
-        setValueOfEquityUnit(equityValueData.unit);
-
-        const firmValueData = calculateUnits(parseFloat(prev_response["total_firm_value"]));
-        setFirmValue(firmValueData.value.toFixed(2));
-        setFirmValueUnit(firmValueData.unit);
-
-        const enterpriseValueData = calculateUnits(parseFloat(prev_response["total_enterprise_value"]));
-        setEnterpriseValue(enterpriseValueData.value.toFixed(2));
-        setEnterpriseValueUnit(enterpriseValueData.unit);
+        setShares(alt_shares);
+        setSharesUnit(alt_shares_unit);
+        setDebt(alt_debt);
+        setDebtUnit(alt_debt_unit);
+        setCash(alt_cash);
+        setCashUnit(alt_cash_unit);
+        setValueOfEquity(alt_value_of_equity);
+        setValueOfEquityUnit(alt_value_of_equity_unit);
+        setFirmValue(alt_total_firm_value);
+        setFirmValueUnit(alt_firm_value_unit);
+        setEnterpriseValue(alt_total_enterprise_value);
+        setEnterpriseValueUnit(alt_enterprise_value_unit);
 
         setStatus("Restored!");
     }
@@ -292,6 +307,7 @@ const Table = ({ setError }) => {
         setEnterpriseValueUnit(enterpriseValueData.unit);
 
         setStatus("Done!");
+        setError("");
     };
 
     const getValues = async () => {
@@ -303,14 +319,9 @@ const Table = ({ setError }) => {
         const url = 'https://iumt93w93d.execute-api.us-east-1.amazonaws.com/default/valuation-backend-dev-hello?ticker=' + ticker_input;
 
         try {
-            getting_values = true;
+            setGettingValues(true);
             const response = await axios.get(url);
             const data = response.data;
-
-            //prev_response = response.data;
-
-            getting_values = false;
-            setError("");
 
             setFY1(data["fy1"]);
             setFY2(data["fy2"]);
@@ -359,7 +370,45 @@ const Table = ({ setError }) => {
             setEnterpriseValue(enterpriseValueData.value.toFixed(2));
             setEnterpriseValueUnit(enterpriseValueData.unit);
 
+            setGettingValues(false);
             setStatus("Done!");
+            setError("");
+
+            setAltFy1(data["fy1"]);
+            setAltFy2(data["fy2"]);
+            setAltGrowthRate(data["growth_rate"]*100);
+            alt_growth_rate = data["growth_rate"];
+            setAltPlowbackRate(data["plowback_rate"]);
+            setAltRiskPremium(data["risk_premium"]*100);
+            setAltFy0(data["fy0"]);
+            setAltMonthsToFYE(parseInt(data["monthsToFYE"]));
+            setAltFe0(data["fe0"]);
+            setAltFe1(data["fe1"]);
+            setAltFe2(data["fe2"]);
+            setAltEpsGrowth(data["eps_growth"]);
+            setAltBookValue(data["book_value"]);
+            setAltStockPrice(data["stock_price"]);
+            setAltRiskFreeRate(data["risk_free_rate"]);
+            setAltBeta(data["beta"]);
+            setAltAdjustedBeta(data["adjusted_beta"]);
+            setAltCostOfEquity(data["cost_of_equity"]);
+            setAltIntrinsicValue(parseFloat(data["intrinsic_equity_per_share"]));
+            setAltProfitVolumeRatio(parseFloat(data["profit_volume_ratio"]));
+            setAltAssetsInPlace(parseFloat(data["assets_in_place"]));
+            setAltPVGO(parseFloat(data["pvgo"]));
+
+            setAltShares(sharesData.value);
+            setAltSharesUnit(sharesData.unit);
+            setAltDebt(debtData.value);
+            setAltDebtUnit(debtData.unit);
+            setAltCash(cashData.value);
+            setAltCashUnit(cashData.unit);
+            setAltValueOfEquity(equityValueData.value.toFixed(2));
+            setAltValueOfEquityUnit(equityValueData.unit);
+            setAltFirmValue(firmValueData.value.toFixed(2));
+            setAltFirmValueUnit(firmValueData.unit);
+            setAltEnterpriseValue(enterpriseValueData.value.toFixed(2));
+            setAltEnterpriseValueUnit(enterpriseValueData.unit);
 
         } catch(error) {
             console.log("Error:" + error);

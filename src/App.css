@@ -11,6 +11,15 @@ body {
   color: var(--text);
 }
 
+footer {
+  justify-content: center;
+  font-size: 14px;
+}
+
+.instructions {
+  margin: 0px 40px;
+}
+
 .App {
   display: grid;
   grid-template-rows: auto 1fr;
@@ -48,8 +57,22 @@ body {
   box-sizing: border-box;
 }
 
+.error-message-container {
+  height: 25px;
+  overflow: hidden;
+}
+
 .error-message {
+  visibility: hidden;
+  opacity: 0;
+  transition: visibility 0s linear 0.2s, opacity 0.2s;
   background-color: #ffcccc;
   border: 1px solid #cc0000;
   color: #cc0000;
+}
+
+.error-message.visible {
+  visibility: visible;
+  opacity: 1;
+  transition: visibility 0s linear, opacity 0.2s;
 }
