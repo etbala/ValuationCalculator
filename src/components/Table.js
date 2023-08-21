@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import './Table.css';
 import axios from 'axios';
+import Decimal from 'decimal.js';
 
 const Table = ({ setError }) => {
-    // Input Values
-    const [ticker, setTicker] = useState("");
+    const [status, setStatus] = useState("");
+    
+    const [ticker, setBaseTicker] = useState("");
+    const [ticker_input, setTicker] = useState("");
 
+    // Useless Second Versions but too lazy to get rid of them 
     const [FY1_input, setFY1] = useState(0);
     const [FY2_input, setFY2] = useState(0);
     const [plowback_rate_input, setPlowbackRate] = useState(0);
@@ -29,39 +33,28 @@ const Table = ({ setError }) => {
     const [cost_of_equity, setCostOfEquity] = useState(0);
     const [intrinsic_value_of_equity_per_share_dfc, setIntrinsicValue] = useState(0);
     const [profit_volume_ratio, setProfitVolumeRatio] = useState(0);
+    const [assets_in_place_value, setAssetsInPlace] = useState(0);
+    const [pvgo, setPVGO] = useState(0);
+    const [value_of_equity, setValueOfEquity] = useState(0);
+    const [total_firm_value, setFirmValue] = useState(0);
+    const [total_enterprise_value, setEnterpriseValue] = useState(0);
 
     const [shares_unit, setSharesUnit] = useState("");
     const [debt_unit, setDebtUnit] = useState("");
     const [cash_unit, setCashUnit] = useState("");
+    const [value_of_equity_unit, setValueOfEquityUnit] = useState("");
+    const [firm_value_unit, setFirmValueUnit] = useState("");
+    const [enterprise_value_unit, setEnterpriseValueUnit] = useState("");
     
+    let prev_response = null;
+
     let getting_values = false;
     let growth_rate_changed = false;
 
-    // Scraped Values
-    /*let stock_price = 0;
-    let shares = 0;
-    let monthsToFYE = 0;
-    let book_value = 0;
-    let beta = 0;
-    let debt = 0;
-    let cash = 0;
-    let fy0 = 0;*/
     let fy1 = 0;
     let fy2 = 0;
-
-    // Static (?) Values
-    /*let eps_growth = 0.05;
-    let risk_free_rate = 0.0397;*/
-    let risk_premium = 0.05;
-
-    //  Calculated Values
-    // ##############################################
-    /*let adjusted_beta = 0;
-    let cost_of_equity = 0;*/
+    let risk_premium = 5.00;
     let growth_rate = 0;
-    /*let fe0 = 0.00;
-    let fe1 = 0.00;
-    let fe2 = 0.00;*/
     let plowback_rate = 0;
 
     // Discounted Cash Flow Calculations (15 Transition Years)
@@ -76,36 +69,49 @@ const Table = ({ setError }) => {
     let roi = [];                                       // Return on new equity Investments
     let ri = [];                                        // Residual Income (EVA for Shareholders)
     let roe_less_re = [];                               // ROE - Cost of Equity
-
-    // Discounted Free Cash Flow Valuation
-    let fcfe_pv                                 = 0;   // Present Value of FCFE during first 15 years
-    let continuing_value_cash_flow_based        = 0;   // Continuing value based on cash flows beyond Year 15
-    /*let intrinsic_value_of_equity_per_share_dfc = 0;   // Discounted Free Cash Flow Valuation
-    let profit_volume_ratio                     = 0;   // Profit Volume Ratio*/
-
-    // Discounted Residual Income Valuation
-    //let residual_income_pv                      = 0;   // Residual Income Present Value first 15 years
-    //let residual_income_cv                      = 0;   // Residual Income Continuing Value after 15 years
-    //let intrinsic_value_of_equity_per_share_ri  = 0;   // Discounted Residual Income (EVA for shareholders) Valuation
-
-    // Value of assets-in-place and PVGO
-    //let assets_in_place_value                   = 0;   // Value of Assets in Place
-    //let pvgo                                    = 0;   // Present Value of Growth Opportunities
-
-    // Firm Valuation
-    //let value_of_equity                         = 0;   // Value of Equity
-    //let total_firm_value                        = 0;   // Total Firm Value
-    //let total_enterprise_value                  = 0;   // Total Enterprise Value
     
     // Function to handle user input changes
     const handleInputChange = (e, setter) => {
         setter(parseFloat(e.target.value));
     };
 
-    const handleTickerChange = (e, setter) => {
-        if(e.target.value !== ticker) {
+    const handleTickerChange = (e) => {
+        if(e.target.value !== ticker_input) {
             setTicker(e.target.value);
-        } else {
+        }
+    };
+
+    const handleKeyDown = (event) => {
+        if(event.key === 'Enter') {
+            run();
+        }
+    }
+
+    const run = () => {
+        if(ticker_input === ticker && getting_values === false) {
+            if(FY1_input <= 0 || FY2_input <= 0) {
+                setError("Unable to value firm due to negative values for FY1 or FY2");
+                return;
+            } else if(plowback_rate_input < 0) {
+                setError("Unable to value firm due to negative plowback rate");
+                return;
+            } else if(plowback_rate_input > 1) {
+                setError("Unable to value firm due as plowback rate is > 1");
+                return;
+            } else if(growth_rate_input < 1) {
+                setError("Unable to value firm as Growth Rate Forecast is < 1%");
+                return;
+            } else if(growth_rate_input > 75) {
+                setError("Unable to value firm as Growth Rate Forecast is > 75%");
+                return;
+            } else if(beta <= 0) {
+                setError("Unable to value firm due to negative beta");
+                return;
+            } else if(risk_premium_input <= 0) {
+                setError("Unable to value firm due to negative risk premium");
+                return;
+            }
+
             fy1 = FY1_input;
             fy2 = FY2_input;
             plowback_rate = plowback_rate_input;
@@ -114,122 +120,209 @@ const Table = ({ setError }) => {
             if(growth_rate !== growth_rate_input/100) {
                 growth_rate_changed = true;
             }
-            growth_rate = growth_rate_input;
+            growth_rate = growth_rate_input/100;
 
             calculateValues();
+        } else {
+            setStatus("Calculating...");
+            setBaseTicker(ticker_input);
+            getValues();
         }
     };
 
-    const handleKeyDown = (event) => {
-        if(event.key === 'Enter') {
-            getValues();
+    const restore = () => {
+        setStatus("Restoring...");
+
+        setBaseTicker(ticker_input);
+        getValues();
+        return;
+        
+        if(prev_response == null) {
+            setStatus("Nothing to Restore.");
+            return;
         }
+
+        
+        
+        setFY1(prev_response["fy1"]);
+        setFY2(prev_response["fy2"]);
+        setGrowthRate(prev_response["growth_rate"]*100);
+        growth_rate = prev_response["growth_rate"];
+        setPlowbackRate(prev_response["plowback_rate"]);
+        setRiskPremium(prev_response["risk_premium"]*100);
+        setFy0(prev_response["fy0"]);
+        setMonthsToFYE(parseInt(prev_response["monthsToFYE"]));
+        setFe0(prev_response["fe0"]);
+        setFe1(prev_response["fe1"]);
+        setFe2(prev_response["fe2"]);
+        setEpsGrowth(prev_response["eps_growth"]);
+        setBookValue(prev_response["book_value"]);
+        setStockPrice(prev_response["stock_price"]);
+        setRiskFreeRate(prev_response["risk_free_rate"]);
+        setBeta(prev_response["beta"]);
+        setAdjustedBeta(prev_response["adjusted_beta"]);
+        setCostOfEquity(prev_response["cost_of_equity"]);
+        setIntrinsicValue(parseFloat(prev_response["intrinsic_equity_per_share"]));
+        setProfitVolumeRatio(parseFloat(prev_response["profit_volume_ratio"]));
+        setAssetsInPlace(parseFloat(prev_response["assets_in_place"]));
+        setPVGO(parseFloat(prev_response["pvgo"]));
+
+        const sharesData = calculateUnits(parseInt(prev_response["shares"]));
+        setShares(sharesData.value);
+        setSharesUnit(sharesData.unit);
+
+        const debtData = calculateUnits(parseInt(prev_response["debt"]));
+        setDebt(debtData.value);
+        setDebtUnit(debtData.unit);
+
+        const cashData = calculateUnits(parseInt(prev_response["cash"]));
+        setCash(cashData.value);
+        setCashUnit(cashData.unit);
+
+        const equityValueData = calculateUnits(parseFloat(prev_response["value_of_equity"]));
+        setValueOfEquity(equityValueData.value.toFixed(2));
+        setValueOfEquityUnit(equityValueData.unit);
+
+        const firmValueData = calculateUnits(parseFloat(prev_response["total_firm_value"]));
+        setFirmValue(firmValueData.value.toFixed(2));
+        setFirmValueUnit(firmValueData.unit);
+
+        const enterpriseValueData = calculateUnits(parseFloat(prev_response["total_enterprise_value"]));
+        setEnterpriseValue(enterpriseValueData.value.toFixed(2));
+        setEnterpriseValueUnit(enterpriseValueData.unit);
+
+        setStatus("Restored!");
     }
 
-
-    // Function to recalculate values based on user inputs
     const calculateValues = () => {
-        //Convert Percentage Input Values
-        
+        setStatus("Calculating...");
+        let shares_decimal = new Decimal(reverseCalculateUnits(shares, shares_unit));
+        let debt_decimal = new Decimal(reverseCalculateUnits(debt, debt_unit));
+        let cash_decimal = new Decimal(reverseCalculateUnits(cash, cash_unit));
 
-        // Computing Cost of Equity
-        //setAdjustedBeta((1/3) + (2/3) * beta);
-        setCostOfEquity((adjusted_beta * risk_premium + risk_free_rate).toFixed(3));
+        let adjusted_beta_decimal = new Decimal(1).dividedBy(3).plus(new Decimal(new Decimal(2).dividedBy(3).times(beta)));
+        let cost_of_equity_decimal = adjusted_beta_decimal.times(risk_premium).plus(risk_free_rate);
 
-        /*
-        // Date Handling
-        let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        let fiscal_month_str = fiscal_year_end.substring(0,3);
-
-        let fiscal_month = -1;
-        for(let i = 0; i < months.length; i++) {
-            if(fiscal_month_str === months[i]) {
-                fiscal_month = i;
-                break;
-            }
-        }
-
-        let current_month = (new Date()).getMonth();
-        if(current_month > fiscal_month) {
-            monthsToFYE = (fiscal_month + 12) - current_month;
-        } else {
-            monthsToFYE = fiscal_month - current_month;
-        }
-        */
+        let growth_rate_decimal = new Decimal(growth_rate);
         if(!growth_rate_changed) {
-            setGrowthRate(fy2/fy1-1);
+            growth_rate_decimal = new Decimal(fy2).dividedBy(fy1).minus(1);
         }
+        
+        let monthsToFYE_decimal = new Decimal(monthsToFYE);
+        let fe0_decimal = new Decimal(monthsToFYE_decimal)
+            .div(12)
+            .times(fy0)
+            .plus(new Decimal(1).minus(monthsToFYE_decimal.div(12)).times(fy1))
+            .toFixed(2);
+        let fe1_decimal = new Decimal(monthsToFYE_decimal)
+            .div(12)
+            .times(fy1)
+            .plus(new Decimal(1).minus(monthsToFYE_decimal.div(12)).times(fy2))
+            .toFixed(2);
+        let fe2_decimal = new Decimal(fe1_decimal)
+            .times(new Decimal(1).plus(growth_rate_decimal))
+            .toFixed(2);
 
-        setFe0((monthsToFYE/12) * fy0 + ((1 - (monthsToFYE/12)) * fy1));
-        setFe1((monthsToFYE/12) * fy1 + ((1 - (monthsToFYE/12)) * fy2));
-        setFe2(fe1 * (1 + growth_rate));
+        let temp = Decimal.exp(
+            new Decimal(1)
+                .div(15)
+                .times(Decimal.log(new Decimal(eps_growth).div(growth_rate_decimal)))
+            );
+        
+        g[2] = growth_rate_decimal;
+        k[0] = new Decimal(plowback_rate);
+        k[1] = new Decimal(plowback_rate);
+        eps[0] = fe0_decimal;
+        eps[1] = fe1_decimal;
+        eps[2] = fe2_decimal;
+        book_value_per_share[0] = new Decimal(book_value);
 
-        // Fill Constants in DCF Model
-        g[2] = growth_rate;
-        k[0] = plowback_rate;
-        k[1] = plowback_rate;
-        eps[0] = fe0;
-        eps[1] = fe1;
-        eps[2] = fe2;
-        book_value_per_share[0] = book_value;
-
-        // Table Calculations
-        let temp = Math.E ** (1/15*Math.log(eps_growth/growth_rate));
-        for(let i = 3; i <= 16; i++) { g[i] = g[i-1] * temp; }
-        for(let i = 2; i <= 16; i++) { k[i] = k[i-1] - (plowback_rate - (eps_growth/cost_of_equity))/15; }
-        for(let i = 3; i <= 16; i++) { eps[i] = eps[i-1] * (1+g[i]); }
-        for(let i = 0; i <= 16; i++) { net_new_equity_investments[i] = k[i] * eps[i]; }
-        for(let i = 0; i <= 16; i++) { fcfe[i] = eps[i] - net_new_equity_investments[i]; }
-        for(let i = 1; i <= 16; i++) { fcfe_growth[i] = fcfe[i]/fcfe[i-1] - 1; }
-        for(let i = 1; i <= 16; i++) { book_value_per_share[i] = book_value_per_share[i-1] + eps[i] - fcfe[i]; }
-        for(let i = 1; i <= 16; i++) { roe[i] = eps[i]/book_value_per_share[i-1]; }
-        for(let i = 1; i <= 16; i++) { roi[i] = (eps[i] - eps[i-1])/net_new_equity_investments[i-1]; }
-        for(let i = 1; i <= 16; i++) { roe_less_re[i] = roe[i] - cost_of_equity; }
-        for(let i = 1; i <= 16; i++) { ri[i] = roe_less_re[i] * book_value_per_share[i-1]; }
-
-        // Discounted Residual Income (EVA for Shareholders) Valuation
-        //residual_income_pv = 0;
-        //for(let i = 1; i <= 16; i++) { residual_income_pv = residual_income_pv + ri[i]/((1+cost_of_equity)**i); }
-        //residual_income_cv = (1/(1+cost_of_equity) ** 15) * (ri[16]/cost_of_equity+(eps[16]*(eps_growth/cost_of_equity)*(cost_of_equity-cost_of_equity))/(cost_of_equity*(cost_of_equity-eps_growth)));
-        //intrinsic_value_of_equity_per_share_ri = book_value + residual_income_pv + residual_income_cv;
+        for(let i = 3; i <= 16; i++) { g[i] = new Decimal(g[i-1]).times(temp); }
+        for(let i = 2; i <= 16; i++) { k[i] = new Decimal(k[i-1]).minus(new Decimal(plowback_rate).minus((new Decimal(eps_growth).dividedBy(cost_of_equity_decimal))).dividedBy(new Decimal(15))); }
+        for(let i = 3; i <= 16; i++) { eps[i] = new Decimal(eps[i-1]).times((g[i].plus(new Decimal(1)))); }
+        for(let i = 0; i <= 16; i++) { net_new_equity_investments[i] = new Decimal(k[i]).times(eps[i]); }
+        for(let i = 0; i <= 16; i++) { fcfe[i] = new Decimal(eps[i]).minus(net_new_equity_investments[i]); }
+        for(let i = 1; i <= 16; i++) { fcfe_growth[i] = new Decimal(fcfe[i]).dividedBy(fcfe[i-1]).minus(new Decimal(1)); }
+        for(let i = 1; i <= 16; i++) { book_value_per_share[i] = new Decimal(book_value_per_share[i-1]).plus(eps[i]).minus(fcfe[i]); }
+        for(let i = 1; i <= 16; i++) { roe[i] = new Decimal(eps[i]).dividedBy(book_value_per_share[i-1]); }
+        for(let i = 1; i <= 16; i++) { roi[i] = new Decimal(eps[i]).minus(eps[i-1]).dividedBy(net_new_equity_investments[i-1]); }
+        for(let i = 1; i <= 16; i++) { roe_less_re[i] = new Decimal(roe[i]).minus(cost_of_equity_decimal); }
+        for(let i = 1; i <= 16; i++) { ri[i] = new Decimal(roe_less_re[i]).times(book_value_per_share[i-1]); }
 
         // Discounted Free Cash Flow Valuation
-        fcfe_pv = 0;
-        for(let i = 1; i <= 16; i++) { fcfe_pv = fcfe_pv + fcfe[i]/((1+cost_of_equity)**i); }
-        continuing_value_cash_flow_based = (1/(1+cost_of_equity) ** 15) * fcfe[16]/(cost_of_equity-eps_growth);
-        setIntrinsicValue(fcfe_pv + continuing_value_cash_flow_based);
-        setProfitVolumeRatio(stock_price/intrinsic_value_of_equity_per_share_dfc);
+        let fcfe_pv = new Decimal(0);
+        for(let i = 1; i <= 16; i++) { fcfe_pv = fcfe_pv.plus(fcfe[i].div(Decimal.pow(new Decimal(1).plus(cost_of_equity_decimal), i))); }
+        let continuing_value_cash_flow_based = new Decimal(1)
+            .div(Decimal.pow(new Decimal(1).plus(cost_of_equity_decimal), 15))
+            .times(fcfe[16].div(cost_of_equity_decimal.minus(new Decimal(eps_growth))));
+        let intrinsic_value_decimal = fcfe_pv.plus(continuing_value_cash_flow_based);
+        let pv_ratio_decimal = new Decimal(stock_price).div(intrinsic_value_decimal);
 
         // Value of assets in place & PVGO
-        //assets_in_place_value = fe1/cost_of_equity;
-        //pvgo = intrinsic_value_of_equity_per_share_dfc - assets_in_place_value;
+        let assets_in_place_decimal = new Decimal(fe1_decimal).dividedBy(cost_of_equity_decimal);
+        let pvgo_decimal = intrinsic_value_decimal.minus(assets_in_place_decimal);
 
         // Firm Valuation
-        //value_of_equity = intrinsic_value_of_equity_per_share_dfc * shares;
-        //total_firm_value = value_of_equity + debt;
-        //total_enterprise_value = total_firm_value - cash;
+        let value_of_equity_decimal = intrinsic_value_decimal.times(shares_decimal);
+        let firm_value_decimal = value_of_equity_decimal.plus(debt_decimal);
+        let enterprise_value_decimal = firm_value_decimal.minus(cash_decimal);
+        
+        setAdjustedBeta(parseFloat(adjusted_beta_decimal).toFixed(2));
+        setGrowthRate(parseFloat(growth_rate_decimal.times(100)).toFixed(1));
+        growth_rate = growth_rate_decimal.toNumber().toFixed(3);
+        setCostOfEquity(parseFloat(cost_of_equity_decimal));
+        setFe0(parseFloat(fe0_decimal).toFixed(2));
+        setFe1(parseFloat(fe1_decimal).toFixed(2));
+        setFe2(parseFloat(fe2_decimal).toFixed(2));
+        setIntrinsicValue(parseFloat(intrinsic_value_decimal).toFixed(2));
+        setProfitVolumeRatio(parseFloat(pv_ratio_decimal).toFixed(2));
+        setAssetsInPlace(parseFloat(assets_in_place_decimal).toFixed(2));
+        setPVGO(parseFloat(pvgo_decimal).toFixed(2));
+
+        const equityValueData = calculateUnits(value_of_equity_decimal);
+        setValueOfEquity(equityValueData.value.toFixed(2));
+        setValueOfEquityUnit(equityValueData.unit);
+
+        const firmValueData = calculateUnits(firm_value_decimal);
+        setFirmValue(firmValueData.value.toFixed(2));
+        setFirmValueUnit(firmValueData.unit);
+
+        const enterpriseValueData = calculateUnits(enterprise_value_decimal);
+        setEnterpriseValue(enterpriseValueData.value.toFixed(2));
+        setEnterpriseValueUnit(enterpriseValueData.unit);
+
+        setStatus("Done!");
     };
 
     const getValues = async () => {
-        //const url = 'https://iumt93w93d.execute-api.us-east-1.amazonaws.com/default/valuation-backend-dev-hello?ticker=' + ticker;
-        const url = "/api/?ticker=" + ticker;
-        getting_values = true;
+        if(getting_values) {
+            setError("Already Calculating Values");
+            return;
+        }
+        
+        const url = 'https://iumt93w93d.execute-api.us-east-1.amazonaws.com/default/valuation-backend-dev-hello?ticker=' + ticker_input;
 
         try {
+            getting_values = true;
             const response = await axios.get(url);
             const data = response.data;
-            getting_values = false;
 
-            setFY1(data["fy1"].toFixed(2));
-            setFY2(data["fy2"].toFixed(2));
+            //prev_response = response.data;
+
+            getting_values = false;
+            setError("");
+
+            setFY1(data["fy1"]);
+            setFY2(data["fy2"]);
             setGrowthRate(data["growth_rate"]*100);
-            setPlowbackRate(data["plowback_rate"].toFixed(2));
+            growth_rate = data["growth_rate"];
+            setPlowbackRate(data["plowback_rate"]);
             setRiskPremium(data["risk_premium"]*100);
-            setFy0(data["fy0"].toFixed(2));
+            setFy0(data["fy0"]);
             setMonthsToFYE(parseInt(data["monthsToFYE"]));
-            setFe0(data["fe0"].toFixed(2));
-            setFe1(data["fe1"].toFixed(2));
-            setFe2(data["fe2"].toFixed(2));
+            setFe0(data["fe0"]);
+            setFe1(data["fe1"]);
+            setFe2(data["fe2"]);
             setEpsGrowth(data["eps_growth"]);
             setBookValue(data["book_value"]);
             setStockPrice(data["stock_price"]);
@@ -239,6 +332,8 @@ const Table = ({ setError }) => {
             setCostOfEquity(data["cost_of_equity"]);
             setIntrinsicValue(parseFloat(data["intrinsic_equity_per_share"]));
             setProfitVolumeRatio(parseFloat(data["profit_volume_ratio"]));
+            setAssetsInPlace(parseFloat(data["assets_in_place"]));
+            setPVGO(parseFloat(data["pvgo"]));
 
             const sharesData = calculateUnits(parseInt(data["shares"]));
             setShares(sharesData.value);
@@ -252,18 +347,32 @@ const Table = ({ setError }) => {
             setCash(cashData.value);
             setCashUnit(cashData.unit);
 
+            const equityValueData = calculateUnits(parseFloat(data["value_of_equity"]));
+            setValueOfEquity(equityValueData.value.toFixed(2));
+            setValueOfEquityUnit(equityValueData.unit);
+
+            const firmValueData = calculateUnits(parseFloat(data["total_firm_value"]));
+            setFirmValue(firmValueData.value.toFixed(2));
+            setFirmValueUnit(firmValueData.unit);
+
+            const enterpriseValueData = calculateUnits(parseFloat(data["total_enterprise_value"]));
+            setEnterpriseValue(enterpriseValueData.value.toFixed(2));
+            setEnterpriseValueUnit(enterpriseValueData.unit);
+
+            setStatus("Done!");
+
         } catch(error) {
-            console.log("Error:", error);
-            if(error.response && error.response.status === 500) {
+            console.log("Error:" + error);
+            if(error.response && error.response.status === 404) {
                 setError("Please Input Valid Ticker");
             } else {
-                setError("Unkown Backend Error");
+                setError("Unkown Error: " + error);
             }
-        }      
+        }
     };
 
     const calculateUnits = (value) => {
-        const units = ['', 'thousands', 'millions', 'billions', 'trillions'];
+        const units = ['', 'thousands', 'millions', 'billions', 'trillions', 'quadrillions', 'quintillions', 'sextillions'];
         const index = Math.floor(Math.log10(Math.abs(value)) / 3);
         const scaledValue = (value / Math.pow(10, index * 3));
         return {
@@ -272,180 +381,225 @@ const Table = ({ setError }) => {
         };
     };
 
+    const reverseCalculateUnits = (scaledValue, unit) => {
+        const units = ['', 'thousands', 'millions', 'billions', 'trillions', 'quadrillions', 'quintillions', 'sextillions'];
+    
+        // Find the index of the given unit
+        const index = units.indexOf(unit);
+    
+        if (index === -1) {
+            throw new Error('Invalid unit provided.');
+        }
+    
+        // Calculate the original value using the formula: originalValue = scaledValue * 10^(index * 3)
+        const originalValue = scaledValue * Math.pow(10, index * 3);
+    
+        return originalValue;
+    };
+
     return (
-        <div className="flex-container">
-            <div className="left-section">
-                <table id="mainTable">
-                    <tr>
-                        <th>Label</th>
-                        <th>Value</th>
-                    </tr>
-                    <tr>
-                        <td>Current Fiscal Year EPS0 ($)</td>
-                        <td>{fy0}</td>
-                    </tr>
-                    <tr>
-                        <td>FY1 Consensus EPS Forecast ($)</td>
-                        <td className="inputCell">
-                            <input type="number" value={FY1_input} step="0.01" min="0.01" onChange={(e) => handleInputChange(e, setFY1)} />
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>FY2 Consensus EPS Forecast ($)</td>
-                        <td className="inputCell">
-                            <input type="number" value={FY2_input} step="0.01" min="0.01" onChange={(e) => handleInputChange(e, setFY2)} />
-                        </td>
-                    </tr>
-                    <tr>
-                        <td># Months to Fiscal Year End</td>
-                        <td>{monthsToFYE}</td>
-                    </tr>
-                    <tr>
-                        <td>Trailing 12-month EPS (FE0)</td>
-                        <td>{fe0}</td>
-                    </tr>
-                    <tr>
-                        <td>12-month forecast (FE1)</td>
-                        <td>{fe1}</td>
-                    </tr>
-                    <tr>
-                        <td>Subsequent 12 months (FE2)</td>
-                        <td>{fe2}</td>
-                    </tr>
-                    <tr>
-                        <td>Year 2 Growth Rate Forecast (g2)</td>
-                        <td className="input-cell-percentage">
-                            <div class="percentage-cell-content">
-                                <input type="number" value={(growth_rate_input.toFixed(1))} step="0.1" min="0.1" onChange={(e) => handleInputChange(e, setGrowthRate)} />
-                                <span>%</span>
-                            </div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            Plowback rate
-                            <span className="tooltip" data-tooltip="Calculated as (1 - Payout Ratio)"></span>
-                        </td>
-                        <td className="input-cell-percentage">
-                            <input type="number" value={plowback_rate_input} step="0.01" max="1" min="0" onChange={(e) => handleInputChange(e, setPlowbackRate)} />
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Steady-state EPS Growth</td>
-                        <td>
-                            <div class="percentage-cell-content">
-                                <span>{((eps_growth*100).toFixed(2))}</span>
-                                <span>%</span>
-                            </div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            Steady-state ROI
-                            <span className="tooltip" data-tooltip="Initially Set to Cost of Equity"></span>
-                        </td>
-                        <td>
-                            <div class="percentage-cell-content">
-                                <span>{((cost_of_equity*100).toFixed(2))}</span>
-                                <span>%</span>
-                            </div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Book Value of Equity Per Share</td>
-                        <td>{(book_value.toFixed(2))}</td>
-                    </tr>
-                    <tr>
-                        <td>Current Stock Price ($)</td>
-                        <td>{(stock_price.toFixed(2))}</td>
-                    </tr>
-                    <tr>
-                        <td>Number of Shares Outstanding ({shares_unit})</td>
-                        <td>{shares}</td>
-                    </tr>
-                    <tr>
-                        <td>Total Debt ({debt_unit} $)</td>
-                        <td>{debt}</td>
-                    </tr>
-                    <tr>
-                        <td>Total Cash ({cash_unit} $)</td>
-                        <td>{cash}</td>
-                    </tr>
-                </table>
+        <div>
+            <div className="ticker-section">
+                <label>
+                    Ticker:
+                    <input type="text" value={ticker_input} onChange={(e) => handleTickerChange(e, setTicker)} size="4" maxLength="4" onKeyDown={handleKeyDown} />
+                    <button onClick={run}>Calculate</button>
+                    <button onClick={restore}>Restore</button>
+                    <label className="status-indicator">{status}</label>
+                </label>
             </div>
-            <div className="right-section">
-                <div className="ticker-section">
-                    <label>
-                        Ticker:
-                        <input type="text" value={ticker} onChange={(e) => handleTickerChange(e, setTicker)} size="4" maxLength="4" onKeyDown={handleKeyDown} />
-                        <button onClick={getValues}>Calculate</button>
-                    </label>
+            <div className="flex-container">
+                <div className="left-section">
+                    <table id="mainTable">
+                        <tr>
+                            <th colSpan="2">Summary of Input Data</th>
+                        </tr>
+                        <tr>
+                            <td>Current Fiscal Year EPS0 ($)</td>
+                            <td>{fy0}</td>
+                        </tr>
+                        <tr>
+                            <td>FY1 Consensus EPS Forecast ($)</td>
+                            <td className="inputCell">
+                                <input type="number" value={FY1_input} step="0.01" min="0.01" onChange={(e) => handleInputChange(e, setFY1)} />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>FY2 Consensus EPS Forecast ($)</td>
+                            <td className="inputCell">
+                                <input type="number" value={FY2_input} step="0.01" min="0.01" onChange={(e) => handleInputChange(e, setFY2)} />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td># Months to Fiscal Year End</td>
+                            <td>{monthsToFYE}</td>
+                        </tr>
+                        <tr>
+                            <td>Trailing 12-month EPS (FE0)</td>
+                            <td>{fe0}</td>
+                        </tr>
+                        <tr>
+                            <td>12-month forecast (FE1)</td>
+                            <td>{fe1}</td>
+                        </tr>
+                        <tr>
+                            <td>Subsequent 12 months (FE2)</td>
+                            <td>{fe2}</td>
+                        </tr>
+                        <tr>
+                            <td>Year 2 Growth Rate Forecast (g2)</td>
+                            <td className="input-cell-percentage">
+                                <div class="percentage-cell-content">
+                                    <input type="number" value={growth_rate_input} step="0.1" min="1" max="75" onChange={(e) => handleInputChange(e, setGrowthRate)} />
+                                    <span>%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                Plowback rate
+                                <span className="tooltip" data-tooltip="1 - payout ratio"></span>
+                            </td>
+                            <td className="input-cell-percentage">
+                                <input type="number" value={plowback_rate_input} step="0.01" max="1" min="0" onChange={(e) => handleInputChange(e, setPlowbackRate)} />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Steady-state EPS Growth</td>
+                            <td>
+                                <div class="percentage-cell-content">
+                                    <span>{((eps_growth*100).toFixed(2))}</span>
+                                    <span>%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                Steady-state ROI
+                                <span className="tooltip" data-tooltip="Set to Cost of Equity"></span>
+                            </td>
+                            <td>
+                                <div class="percentage-cell-content">
+                                    <span>{((cost_of_equity*100).toFixed(2))}</span>
+                                    <span>%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Book Value of Equity Per Share</td>
+                            <td>{book_value}</td>
+                        </tr>
+                        <tr>
+                            <td>Current Stock Price ($)</td>
+                            <td>{stock_price}</td>
+                        </tr>
+                        <tr>
+                            <td># Shares Outstanding ({shares_unit})</td>
+                            <td>{shares}</td>
+                        </tr>
+                        <tr>
+                            <td>Total Debt ({debt_unit} $)</td>
+                            <td>{debt}</td>
+                        </tr>
+                        <tr>
+                            <td>Total Cash ({cash_unit} $)</td>
+                            <td>{cash}</td>
+                        </tr>
+                    </table>
                 </div>
-                <table id="costOfEquity">
-                    <tr>
-                        <th>Label</th>
-                        <th>Value</th>
-                    </tr>
-                    <tr>
-                        <td>
-                            Risk-free rate
-                            <span className="tooltip" data-tooltip="Yield on 30-year U.S. govt. bond"></span>
-                        </td>
-                        <td>
-                            <div class="percentage-cell-content">
-                                <span>{((risk_free_rate*100).toFixed(2))}</span>
-                                <span>%</span>
-                            </div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Raw Beta</td>
-                        <td>{(beta.toFixed(2))}</td>
-                    </tr>
-                    <tr>
-                        <td>
-                            Adjusted Beta
-                            <span className="tooltip" data-tooltip="1/3 + 2/3*raw beta"></span>
-                        </td>
-                        <td>{(adjusted_beta.toFixed(2))}</td>
-                    </tr>
-                    <tr>
-                        <td>
-                            Risk premium on U.S. market
-                            <span className="tooltip" data-tooltip="rm - rf"></span>
-                        </td>
-                        <td className="input-cell-percentage">
-                            <div class="percentage-cell-content">
-                                <input type="number" value={(risk_premium_input.toFixed(2))} step="0.01" min="0.01" onChange={(e) => handleInputChange(e, setRiskPremium)} />
-                                <span>%</span>
-                            </div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Cost of Equity (re)</td>
-                        <td>
-                            <div class="percentage-cell-content">
-                                <span>{((cost_of_equity*100).toFixed(2))}</span>
-                                <span>%</span>
-                            </div>
-                        </td>
-                    </tr>
-                    
-                </table>
-                <table id="valuationTable">
-                    <tr>
-                        <th>Label</th>
-                        <th>Value</th>
-                    </tr>
-                    <tr>
-                        <td>Value of Equity Per Share</td>
-                        <td>{(intrinsic_value_of_equity_per_share_dfc.toFixed(2))}</td>
-                    </tr>
-                    <tr>
-                        <td>P/V Ratio</td>
-                        <td>{(profit_volume_ratio.toFixed(2))}</td>
-                    </tr>
-                </table>
+                <div className="right-section">
+                    <table id="costOfEquity">
+                        <tr>
+                            <th colSpan="2">Cost of Equity Calculation</th>
+                        </tr>
+                        <tr>
+                            <td>
+                                Risk-free rate
+                                <span className="tooltip" data-tooltip="Yield on 30-year U.S. govt. bond"></span>
+                            </td>
+                            <td>
+                                <div class="percentage-cell-content">
+                                    <span>{((risk_free_rate*100).toFixed(2))}</span>
+                                    <span>%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Raw Beta</td>
+                            <td className="inputCell">
+                                <input type="number" value={beta} step="0.01" min="0.01" onChange={(e) => handleInputChange(e, setBeta)} />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                Adjusted Beta
+                                <span className="tooltip" data-tooltip="1/3 + 2/3*raw beta"></span>
+                            </td>
+                            <td>{adjusted_beta}</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                Risk premium on U.S. market
+                                <span className="tooltip" data-tooltip="rm - rf"></span>
+                            </td>
+                            <td className="input-cell-percentage">
+                                <div class="percentage-cell-content">
+                                    <input type="number" value={risk_premium_input} step="0.01" min="0.01" onChange={(e) => handleInputChange(e, setRiskPremium)} />
+                                    <span>%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Cost of Equity (re)</td>
+                            <td>
+                                <div class="percentage-cell-content">
+                                    <span>{((cost_of_equity*100).toFixed(2))}</span>
+                                    <span>%</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                    <table id="valuationTable">
+                        <tr>
+                            <th colSpan="2">Firm Valuation</th>
+                        </tr>
+                        <tr>
+                            <td>Value of Equity Per Share ($)</td>
+                            <td>{intrinsic_value_of_equity_per_share_dfc}</td>
+                        </tr>
+                        <tr>
+                            <td>P/V Ratio</td>
+                            <td>{profit_volume_ratio}</td>
+                        </tr>
+                        <tr>
+                            <td>Value of assets-in-place ($)</td>
+                            <td>{assets_in_place_value}</td>
+                        </tr>
+                        <tr>
+                            <td>PVGO ($)</td>
+                            <td>{pvgo}</td>
+                        </tr>
+                        <tr>
+                            <td>Value of Equity ({value_of_equity_unit} $)</td>
+                            <td>{value_of_equity}</td>
+                        </tr>
+                        <tr>
+                            <td>Value of Debt ({debt_unit} $)</td>
+                            <td>{debt}</td>
+                        </tr>
+                        <tr>
+                            <td>Total Firm Value ({firm_value_unit} $)</td>
+                            <td>{total_firm_value}</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                Total Enterprise Value ({enterprise_value_unit} $)
+                                <span className="tooltip" data-tooltip="total firm value - cash"></span>
+                            </td>
+                            <td>{total_enterprise_value}</td>
+                        </tr>
+                    </table>
+                </div>
             </div>
         </div>
     );

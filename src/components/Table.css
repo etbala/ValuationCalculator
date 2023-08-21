@@ -20,7 +20,6 @@ th {
     background-color: var(--secondary);
 }
 
-/* Styling for the input fields */
 input[type="number"] {
     width: 80%;
     padding: 5px;
@@ -40,6 +39,7 @@ input[type="text"] {
     margin-right: 5px;
     font-size: 22px;
     padding: 3px;
+    width: 70px;
 }
 
 td:nth-child(1) {
@@ -52,7 +52,7 @@ td:nth-child(2) {
 
 button {
     font-size: 20px;
-    padding: 8px 16px;
+    padding: 8px 13px;
     margin-left: 10px;
     background-color: var(--primary);
     color: #fff;
@@ -77,12 +77,20 @@ button {
 }
 
 .ticker-section {
+    position: relative;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    margin-top: 35px;
+    align-items: left;
+    margin: 20px;
+    margin-bottom: 0px;
     font-size: 25px;
     font-weight: bold;
+}
+
+.status-indicator {
+    margin: 0px 13px;
+    font-size: 20px;
+    font-weight: 500;
 }
 
 .tooltip {

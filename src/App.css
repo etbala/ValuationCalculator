@@ -5,23 +5,28 @@
     --secondary: #C5CCE4;
 }
 
+body {
+  min-width: 875px;
+  background-color: var(--background);
+  color: var(--text);
+}
+
 .App {
   display: grid;
   grid-template-rows: auto 1fr;
   align-items: center;
   justify-content: center;
-  height: 100vh;
-  background-color: var(--background); /* Light gray background */
-  color: var(--text); /* Dark gray text color */
 }
 
 .App-header {
   text-align: center;
-  align-content: center;
+  padding-bottom: 0px;
+  margin-bottom: 0px;
 }
 
 .main-container {
   padding: 20px;
+  padding-top: 0px;
   max-width: 1200px;
   display: flex;
   flex-wrap: wrap;
@@ -30,7 +35,6 @@
 
 .flex-container {
   display: flex;
-  flex-wrap: wrap;
   justify-content: space-between;
 }
 
@@ -44,14 +48,8 @@
   box-sizing: border-box;
 }
 
-.left-section::after,
-.right-section::after {
-  display: table;
-  clear: both;
-}
-
 .error-message {
-  background-color: #ffcccc; /* Light red background color */
-  border: 1px solid #cc0000; /* Dark red border */
-  color: #cc0000; /* Dark red text color */
+  background-color: #ffcccc;
+  border: 1px solid #cc0000;
+  color: #cc0000;
 }
