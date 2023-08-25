@@ -46,7 +46,6 @@ const Table = ({ setError }) => {
     const [firm_value_unit, setFirmValueUnit] = useState("");
     const [enterprise_value_unit, setEnterpriseValueUnit] = useState("");
 
-
     const [alt_fy0, setAltFy0] = useState(0);
     const [alt_fy1, setAltFy1] = useState(0);
     const [alt_fy2, setAltFy2] = useState(0);
@@ -125,7 +124,6 @@ const Table = ({ setError }) => {
 
     const run = () => {
         if(ticker_input === ticker && getting_values === false && ticker !== "") {
-            console.log("Getting_values: " + getting_values);
             if(FY1_input <= 0 || FY2_input <= 0) {
                 setError("Unable to value firm due to negative values for FY1 or FY2");
                 return;
@@ -162,14 +160,14 @@ const Table = ({ setError }) => {
             calculateValues();
         } else {
             setStatus("Calculating...");
-            setBaseTicker(ticker_input);
             getValues();
         }
     };
 
     const restore = () => {
         setStatus("Restoring...");
-        
+        setTicker(ticker);
+
         setFY1(alt_fy1);
         setFY2(alt_fy2);
         setGrowthRate(alt_growth_rate_input);
@@ -215,7 +213,7 @@ const Table = ({ setError }) => {
         let debt_decimal = new Decimal(reverseCalculateUnits(debt, debt_unit));
         let cash_decimal = new Decimal(reverseCalculateUnits(cash, cash_unit));
 
-        let adjusted_beta_decimal = new Decimal(1).dividedBy(3).plus(new Decimal(new Decimal(2).dividedBy(3).times(beta)));
+        let adjusted_beta_decimal = new Decimal(1).dividedBy(3).plus(new Decimal(2).dividedBy(3).times(beta));
         let cost_of_equity_decimal = adjusted_beta_decimal.times(risk_premium).plus(risk_free_rate);
 
         let growth_rate_decimal = new Decimal(growth_rate);
@@ -227,16 +225,13 @@ const Table = ({ setError }) => {
         let fe0_decimal = new Decimal(monthsToFYE_decimal)
             .div(12)
             .times(fy0)
-            .plus(new Decimal(1).minus(monthsToFYE_decimal.div(12)).times(fy1))
-            .toFixed(2);
+            .plus(new Decimal(1).minus(monthsToFYE_decimal.div(12)).times(fy1));
         let fe1_decimal = new Decimal(monthsToFYE_decimal)
             .div(12)
             .times(fy1)
-            .plus(new Decimal(1).minus(monthsToFYE_decimal.div(12)).times(fy2))
-            .toFixed(2);
+            .plus(new Decimal(1).minus(monthsToFYE_decimal.div(12)).times(fy2));
         let fe2_decimal = new Decimal(fe1_decimal)
-            .times(new Decimal(1).plus(growth_rate_decimal))
-            .toFixed(2);
+            .times(new Decimal(1).plus(growth_rate_decimal));
 
         let temp = Decimal.exp(
             new Decimal(1)
@@ -315,6 +310,10 @@ const Table = ({ setError }) => {
             setError("Already Calculating Values");
             return;
         }
+
+        //if(ticker === '') {
+         //   setError("Please Input Valid Ticker");
+        //}
         
         const url = 'https://iumt93w93d.execute-api.us-east-1.amazonaws.com/default/valuation-backend-dev-hello?ticker=' + ticker_input;
 
@@ -322,6 +321,7 @@ const Table = ({ setError }) => {
             setGettingValues(true);
             const response = await axios.get(url);
             const data = response.data;
+            setBaseTicker(ticker_input);
 
             setFY1(data["fy1"]);
             setFY2(data["fy2"]);
@@ -411,9 +411,13 @@ const Table = ({ setError }) => {
             setAltEnterpriseValueUnit(enterpriseValueData.unit);
 
         } catch(error) {
+            setGettingValues(false);
+            setStatus("Error Calculating");
             console.log("Error:" + error);
             if(error.response && error.response.status === 404) {
                 setError("Please Input Valid Ticker");
+            } else if(error.response && error.response.status === 500) {
+                setError("Please Input Valid Ticker"); // Not Technically Always True
             } else {
                 setError("Unkown Error: " + error);
             }
