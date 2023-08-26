@@ -222,22 +222,9 @@ const Table = ({ setError }) => {
         }
         
         let monthsToFYE_decimal = new Decimal(monthsToFYE);
-        let fe0_decimal = new Decimal(monthsToFYE_decimal)
-            .div(12)
-            .times(fy0)
-            .plus(new Decimal(1).minus(monthsToFYE_decimal.div(12)).times(fy1));
-        let fe1_decimal = new Decimal(monthsToFYE_decimal)
-            .div(12)
-            .times(fy1)
-            .plus(new Decimal(1).minus(monthsToFYE_decimal.div(12)).times(fy2));
-        let fe2_decimal = new Decimal(fe1_decimal)
-            .times(new Decimal(1).plus(growth_rate_decimal));
-
-        let temp = Decimal.exp(
-            new Decimal(1)
-                .div(15)
-                .times(Decimal.log(new Decimal(eps_growth).div(growth_rate_decimal)))
-            );
+        let fe0_decimal = new Decimal(monthsToFYE_decimal).div(12).times(fy0).plus(new Decimal(1).minus(monthsToFYE_decimal.div(12)).times(fy1));
+        let fe1_decimal = new Decimal(monthsToFYE_decimal).div(12).times(fy1).plus(new Decimal(1).minus(monthsToFYE_decimal.div(12)).times(fy2));
+        let fe2_decimal = new Decimal(fe1_decimal).times(new Decimal(1).plus(growth_rate_decimal));
         
         g[2] = growth_rate_decimal;
         k[0] = new Decimal(plowback_rate);
@@ -246,7 +233,8 @@ const Table = ({ setError }) => {
         eps[1] = fe1_decimal;
         eps[2] = fe2_decimal;
         book_value_per_share[0] = new Decimal(book_value);
-
+        
+        let temp = Decimal.exp(new Decimal(1).div(15).times(Decimal.log(new Decimal(eps_growth).div(growth_rate_decimal), Decimal.exp(1))));
         for(let i = 3; i <= 16; i++) { g[i] = new Decimal(g[i-1]).times(temp); }
         for(let i = 2; i <= 16; i++) { k[i] = new Decimal(k[i-1]).minus(new Decimal(plowback_rate).minus((new Decimal(eps_growth).dividedBy(cost_of_equity_decimal))).dividedBy(new Decimal(15))); }
         for(let i = 3; i <= 16; i++) { eps[i] = new Decimal(eps[i-1]).times((g[i].plus(new Decimal(1)))); }
