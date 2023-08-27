@@ -412,6 +412,71 @@ const Table = ({ setError }) => {
         }
     };
 
+    const getValues2 = async() => {
+        const url = 'https://iumt93w93d.execute-api.us-east-1.amazonaws.com/default/valuation-backend-dev-hello?ticker=' + ticker_input;
+        if(getting_values) {
+            setError("Already Calculating Values");
+            return;
+        }
+        
+        try {
+            setGettingValues(true);
+            const response = await axios.get(url);
+            const data = response.data;
+            setBaseTicker(ticker_input);
+
+            // Values that need to be backed up
+            setFY1(data["fy1"]);
+            setFY2(data["fy2"]);
+            setPlowbackRate(data["plowback_rate"]);
+            setRiskPremium(data["risk_premium"]*100);
+
+            // Static Uneditable Values
+            setStockPrice(data["stock_price"]);
+            setBeta(data["beta"]);
+            setMonthsToFYE(data["monthsToFYE"]);
+            setBookValue(data["book_value"]);
+            setFy0(data["fy0"]);
+            setRiskFreeRate(data["risk_free_rate"]);
+            setEpsGrowth(data["eps_growth"]);
+            let forward_dividend_rate = data["foward_dividend_rate"];
+
+            const sharesData = calculateUnits(parseInt(data["shares"]));
+            setShares(sharesData.value);
+            setSharesUnit(sharesData.unit);
+
+            const debtData = calculateUnits(parseInt(data["debt"]));
+            setDebt(debtData.value);
+            setDebtUnit(debtData.unit);
+
+            const cashData = calculateUnits(parseInt(data["cash"]));
+            setDebt(cashData.value);
+            setDebtUnit(cashData.unit);
+
+
+
+
+
+            setGettingValues(false);
+            setStatus("Done!");
+            setError("");
+
+        } catch(error) {
+            setGettingValues(false);
+            setStatus("Error Calculating");
+            console.log("Error:" + error);
+            if(error.response && error.response.status === 403) {
+                setError("Please Input Valid Ticker");
+            } else if(error.response && error.response.status === 503) {
+                setError("Yahoo Finance is Down. Please try again later.");
+            } else if(error.response && error.response.status === 500) {
+                setError("Please Input Valid Ticker"); // Not Technically Always True
+            } else {
+                setError("Unkown Error: " + error);
+            }
+        }
+    };
+
     const calculateUnits = (value) => {
         const units = ['', 'thousands', 'millions', 'billions', 'trillions', 'quadrillions', 'quintillions', 'sextillions'];
         const index = Math.floor(Math.log10(Math.abs(value)) / 3);
