@@ -357,7 +357,7 @@ const Table = ({ setError }) => {
         let temp_ticker = ticker_input.replace(/\s+/g, '').toUpperCase();
         if(temp_ticker === "") {
             setError("Please Input Valid Ticker");
-            setStatus("Error Calculating");
+            setStatus("Error");
             return;
         }
         const url = 'https://z8r04ropn7.execute-api.us-east-1.amazonaws.com/default/valuation-backend-dev-hello?ticker=' + temp_ticker;
@@ -368,39 +368,14 @@ const Table = ({ setError }) => {
         
         try {
             setGettingValues(true);
-            setStatus("Calculating Values...");
             const response = await axios.get(url);
+            setStatus("Calculating Values...");
             const data = response.data;
             setBaseTicker(ticker_input);
             data["stock_price"] = parseFloat(data["stock_price"]).toFixed(2)
 
-            // Values that need to be backed up
-            setFY1(data["fy1"]);
-            setFY2(data["fy2"]);
-            setRiskPremium(data["risk_premium"]*100);
-
-            // Static Uneditable Values
-            setStockPrice(data["stock_price"]);
-            setBeta(data["beta"]);
-            setMonthsToFYE(data["monthsToFYE"]);
-            setBookValue(data["book_value"]);
-            setFy0(data["fy0"]);
-            setRiskFreeRate(data["risk_free_rate"]);
-            setEpsGrowth(data["eps_growth"]);
             let trailing_dividend_rate = data["trailing_dividend_rate"];
             let payout_ratio = data["payout_ratio"];
-
-            const sharesData = calculateUnits(parseInt(data["shares"]));
-            setShares(sharesData.value);
-            setSharesUnit(sharesData.unit);
-
-            const debtData = calculateUnits(parseInt(data["debt"]));
-            setDebt(debtData.value);
-            setDebtUnit(debtData.unit);
-
-            const cashData = calculateUnits(parseInt(data["cash"]));
-            setCash(cashData.value);
-            setCashUnit(cashData.unit);
 
             // Calculating values
             let shares_decimal = new Decimal(data["shares"]);
@@ -416,13 +391,24 @@ const Table = ({ setError }) => {
             let fy2_decimal = new Decimal(data["fy2"]);
             let stock_price_decimal = new Decimal(data["stock_price"]);
 
+            if(fy1_decimal.lessThan(new Decimal(0)) || fy2_decimal.lessThan(new Decimal(0))) {
+                setError("Firm Cannot Be Valued: Negative Projected Earnings");
+                setGettingValues(false);
+                setStatus("Error");
+                return;
+            }
+
             let plowback_rate_decimal = new Decimal(0);
             if(payout_ratio === "N/A") {
                 if(trailing_dividend_rate === "N/A") {
                     setError("Not enough information to calculate payout ratio.");
+                    setGettingValues(false);
+                    setStatus("Error");
                     return;
                 } else if(fy1_decimal.lessThanOrEqualTo(0)) {
-                    setError("Firm Cannot Be Valued: Negative Current and Projected Earnings");
+                    setError("Firm Cannot Be Valued: Negative Projected Earnings");
+                    setGettingValues(false);
+                    setStatus("Error");
                     return;
                 } else {
                     plowback_rate_decimal = new Decimal(new Decimal(trailing_dividend_rate).div(fy0_decimal).toFixed(2));
@@ -447,7 +433,6 @@ const Table = ({ setError }) => {
 
             let adjusted_beta_decimal = new Decimal(1).dividedBy(3).plus(new Decimal(2).dividedBy(3).times(beta_decimal));
             let cost_of_equity_decimal = adjusted_beta_decimal.times(risk_premium_decimal).plus(risk_free_rate_decimal);
-            console.log(parseFloat(cost_of_equity_decimal));
             
             let monthsToFYE_decimal = new Decimal(data["monthsToFYE"]);
             let fe0_decimal = new Decimal(monthsToFYE_decimal).div(12).times(fy0_decimal).plus(new Decimal(1).minus(monthsToFYE_decimal.div(12)).times(fy1_decimal));
@@ -531,6 +516,28 @@ const Table = ({ setError }) => {
                 cost_of_equity_implied = cost_of_equity_implied.add(0.0001);
             }
 
+            
+            setFY1(data["fy1"]);
+            setFY2(data["fy2"]);
+            setRiskPremium(data["risk_premium"]*100);
+            setStockPrice(data["stock_price"]);
+            setBeta(data["beta"]);
+            setMonthsToFYE(data["monthsToFYE"]);
+            setBookValue(data["book_value"]);
+            setFy0(data["fy0"]);
+            setRiskFreeRate(data["risk_free_rate"]);
+            setEpsGrowth(data["eps_growth"]);
+
+            const sharesData = calculateUnits(parseInt(data["shares"]));
+            setShares(sharesData.value);
+            setSharesUnit(sharesData.unit);
+            const debtData = calculateUnits(parseInt(data["debt"]));
+            setDebt(debtData.value);
+            setDebtUnit(debtData.unit);
+            const cashData = calculateUnits(parseInt(data["cash"]));
+            setCash(cashData.value);
+            setCashUnit(cashData.unit);
+
             setAdjustedBeta(parseFloat(adjusted_beta_decimal).toFixed(2));
             setGrowthRate(parseFloat(growth_rate_decimal.times(100)).toFixed(1));
             growth_rate = growth_rate_decimal.toNumber().toFixed(3);
@@ -598,16 +605,16 @@ const Table = ({ setError }) => {
             
         } catch(error) {
             setGettingValues(false);
-            setStatus("Error Calculating");
-            console.log(error);
+            setStatus("Error");
             if(error.response && error.response.status === 400) {
                 setError("Please input a valid ticker.");
             } else if(error.response && error.response.status === 503) {
                 setError("Data for that stock is unavailable at the moment.");
             } else if(error.response && error.response.status === 500) {
-                setError("Unknown Error when retrieving data.");
+                setError("Unknown Error retrieving data.");
             } else {
                 setError("Unkown Error: " + error);
+                console.log(error);
             }
         }
     };
