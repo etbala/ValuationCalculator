@@ -1,3 +1,6 @@
+
+/* General and Desktop Version CSS */
+
 table {
     width: 90%;
     border-collapse: collapse;
@@ -16,7 +19,12 @@ td {
     vertical-align: middle;
     color: var(--text);
 }
-  
+
+td {
+    position: relative;
+    padding-right: 40px; /* Adjust based on button size */
+}
+
 th {
     background-color: var(--secondary);
 }
@@ -104,9 +112,11 @@ label {
 }
 
 .status-indicator {
+    display: inline-block;
     margin: 0px 13px;
     font-size: 20px;
     font-weight: 500;
+    width: 160px;
 }
 
 .tooltip {
@@ -182,3 +192,56 @@ label {
     max-height: 500px;
     transition: max-height 0.3s ease-in-out;
 }
+
+.edit {
+    right: 5px;
+    top: 50%;
+    transform: translateY(13%);
+    font-size: 16px;
+    padding: 6px 10px;
+    margin-left: 3px;
+}
+
+/* Mobile Specific CSS */
+
+.mobile-tables-container {
+    align-items: center;
+    margin: 0px 150px;
+}
+
+.mobile-ticker-section {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 20px;
+    margin-top: 0px;
+    margin-bottom: 0px;
+    font-size: 25px;
+    font-weight: bold;
+    margin-left: 11px;
+}
+
+.mobile-instructions-section {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    margin-top: 20px;
+}
+
+.mobile-instruction-button {
+    font-size: 16px;
+    padding: 6px 10px;
+    margin-left: 0px;
+}
+
+#mobile-instructions {
+    margin: 0px;
+}
+
+#instruction-header {
+    margin: 0px;
+}
+
