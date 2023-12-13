@@ -282,36 +282,13 @@ const Table = ({ setError }) => {
         let firm_value_decimal = value_of_equity_decimal.plus(debt_decimal);
         let enterprise_value_decimal = firm_value_decimal.minus(cash_decimal);
         
+        // Implied Cost of Equity Calculation
         let cost_of_equity_implied = new Decimal(0.0001);
         while(true) {
-            g[2] = growth_rate_decimal;
-            k[0] = plowback_rate;
-            k[1] = plowback_rate;
-            eps[0] = fe0_decimal;
-            eps[1] = fe1_decimal;
-            eps[2] = fe2_decimal;
-            book_value_per_share[0] = new Decimal(book_value);
-            
-            g[2] = growth_rate_decimal;
-            k[0] = new Decimal(plowback_rate);
-            k[1] = new Decimal(plowback_rate);
-            eps[0] = fe0_decimal;
-            eps[1] = fe1_decimal;
-            eps[2] = fe2_decimal;
-            book_value_per_share[0] = new Decimal(book_value);
-            
-            let temp = Decimal.exp(new Decimal(1).div(15).times(Decimal.log(new Decimal(eps_growth).div(growth_rate_decimal), Decimal.exp(1))));
-            for(let i = 3; i <= 16; i++) { g[i] = new Decimal(g[i-1]).times(temp); }
             for(let i = 2; i <= 16; i++) { k[i] = new Decimal(k[i-1]).minus(new Decimal(plowback_rate).minus((new Decimal(eps_growth).dividedBy(cost_of_equity_implied))).dividedBy(new Decimal(15))); }
             for(let i = 3; i <= 16; i++) { eps[i] = new Decimal(eps[i-1]).times((g[i].plus(new Decimal(1)))); }
             for(let i = 0; i <= 16; i++) { net_new_equity_investments[i] = new Decimal(k[i]).times(eps[i]); }
             for(let i = 0; i <= 16; i++) { fcfe[i] = new Decimal(eps[i]).minus(net_new_equity_investments[i]); }
-            for(let i = 1; i <= 16; i++) { fcfe_growth[i] = new Decimal(fcfe[i]).dividedBy(fcfe[i-1]).minus(new Decimal(1)); }
-            for(let i = 1; i <= 16; i++) { book_value_per_share[i] = new Decimal(book_value_per_share[i-1]).plus(eps[i]).minus(fcfe[i]); }
-            for(let i = 1; i <= 16; i++) { roe[i] = new Decimal(eps[i]).dividedBy(book_value_per_share[i-1]); }
-            for(let i = 1; i <= 16; i++) { roi[i] = new Decimal(eps[i]).minus(eps[i-1]).dividedBy(net_new_equity_investments[i-1]); }
-            for(let i = 1; i <= 16; i++) { roe_less_re[i] = new Decimal(roe[i]).minus(cost_of_equity_implied); }
-            for(let i = 1; i <= 16; i++) { ri[i] = new Decimal(roe_less_re[i]).times(book_value_per_share[i-1]); }
 
             // Discounted Free Cash Flow Valuation
             let fcfe_pv = new Decimal(0);
@@ -320,10 +297,8 @@ const Table = ({ setError }) => {
                 .div(Decimal.pow(new Decimal(1).plus(cost_of_equity_implied), 15))
                 .times(fcfe[16].div(cost_of_equity_implied.minus(new Decimal(eps_growth))));
             let intrinsic_value_implied = fcfe_pv.plus(continuing_value_cash_flow_based);
-
-            if(intrinsic_value_implied.lessThanOrEqualTo(new Decimal(stock_price))) {
-                break;
-            }
+            
+            if(intrinsic_value_implied.lessThanOrEqualTo(new Decimal(stock_price))) { break; }
             cost_of_equity_implied = cost_of_equity_implied.add(0.0001);
         }
         
@@ -481,28 +456,14 @@ const Table = ({ setError }) => {
             let firm_value_decimal = value_of_equity_decimal.plus(debt_decimal);
             let enterprise_value_decimal = firm_value_decimal.minus(cash_decimal);
             
+
+            // Implied Cost of Equity Calculation
             let cost_of_equity_implied = new Decimal(0.0001);
             while(true) {
-                g[2] = growth_rate_decimal;
-                k[0] = plowback_rate_decimal;
-                k[1] = plowback_rate_decimal;
-                eps[0] = fe0_decimal;
-                eps[1] = fe1_decimal;
-                eps[2] = fe2_decimal;
-                book_value_per_share[0] = book_value_decimal;
-                
-                let temp = Decimal.exp(new Decimal(1).div(15).times(Decimal.log(eps_growth_decimal.div(growth_rate_decimal), Decimal.exp(1))));
-                for(let i = 3; i <= 16; i++) { g[i] = new Decimal(g[i-1]).times(temp); }
                 for(let i = 2; i <= 16; i++) { k[i] = new Decimal(k[i-1]).minus(plowback_rate_decimal.minus((eps_growth_decimal.dividedBy(cost_of_equity_implied))).dividedBy(new Decimal(15))); }
                 for(let i = 3; i <= 16; i++) { eps[i] = new Decimal(eps[i-1]).times((g[i].plus(new Decimal(1)))); }
                 for(let i = 0; i <= 16; i++) { net_new_equity_investments[i] = new Decimal(k[i]).times(eps[i]); }
                 for(let i = 0; i <= 16; i++) { fcfe[i] = new Decimal(eps[i]).minus(net_new_equity_investments[i]); }
-                for(let i = 1; i <= 16; i++) { fcfe_growth[i] = new Decimal(fcfe[i]).dividedBy(fcfe[i-1]).minus(new Decimal(1)); }
-                for(let i = 1; i <= 16; i++) { book_value_per_share[i] = new Decimal(book_value_per_share[i-1]).plus(eps[i]).minus(fcfe[i]); }
-                for(let i = 1; i <= 16; i++) { roe[i] = new Decimal(eps[i]).dividedBy(book_value_per_share[i-1]); }
-                for(let i = 1; i <= 16; i++) { roi[i] = new Decimal(eps[i]).minus(eps[i-1]).dividedBy(net_new_equity_investments[i-1]); }
-                for(let i = 1; i <= 16; i++) { roe_less_re[i] = new Decimal(roe[i]).minus(cost_of_equity_implied); }
-                for(let i = 1; i <= 16; i++) { ri[i] = new Decimal(roe_less_re[i]).times(book_value_per_share[i-1]); }
 
                 // Discounted Free Cash Flow Valuation
                 let fcfe_pv = new Decimal(0);
@@ -511,15 +472,11 @@ const Table = ({ setError }) => {
                     .div(Decimal.pow(new Decimal(1).plus(cost_of_equity_implied), 15))
                     .times(fcfe[16].div(cost_of_equity_implied.minus(eps_growth_decimal)));
                 let intrinsic_value_implied = fcfe_pv.plus(continuing_value_cash_flow_based);
-
-                if(intrinsic_value_implied.lessThanOrEqualTo(stock_price_decimal)) {
-                    break;
-                }
-
+                
+                if(intrinsic_value_implied.lessThanOrEqualTo(stock_price_decimal)) { break; }
                 cost_of_equity_implied = cost_of_equity_implied.add(0.0001);
             }
 
-            
             setFY1(data["fy1"]);
             setFY2(data["fy2"]);
             setRiskPremium(data["risk_premium"]*100);
