@@ -88,9 +88,17 @@ label {
     padding: 3px;
 }
 
+.inputCell:hover {
+    background-color: #E2E2E2;
+}
+
 .input-cell-percentage {
     padding: 3px;
     padding-right: 8px;
+}
+
+.input-cell-percentage:hover {
+    background-color: #E2E2E2;
 }
 
 .percentage-cell-content {

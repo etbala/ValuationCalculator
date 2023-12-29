@@ -1,20 +1,10 @@
 import './App.css';
 import React, { useState } from 'react';
 import Table from './components/Table';
+import {isMobile} from 'react-device-detect';
 
 function App() {
   const [error, setError] = useState("");
-
-  /*function isMobileDevice() {
-    return /Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  }*/
-  
-  /*if (isMobileDevice()) {
-    document.documentElement.classList.add('mobile-device');
-    setError("Mobile Device Detected.");
-  } else {
-    document.documentElement.classList.add('desktop-device');
-  }*/
 
   return (
       <div className="App">
@@ -27,7 +17,7 @@ function App() {
           </div>
         </header>
         <main className="main-container">
-          <Table setError={setError} />
+          <Table isMobile={isMobile} setError={setError} />
         </main>
       </div>
   );

@@ -3,10 +3,7 @@ import './Table.css';
 import axios from 'axios';
 import Decimal from 'decimal.js';
 
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEdit, faCalculator } from '@fortawesome/free-solid-svg-icons';
-
-const Table = ({ setError }) => {
+const Table = ({ setError, isMobile }) => {
     const [showInstructions, setShowInstructions] = useState(false);
     const toggleInstructions = () => {
         setShowInstructions(!showInstructions);
@@ -648,8 +645,6 @@ const Table = ({ setError }) => {
         return originalValue;
     };
 
-    let isMobile = true
-
     if(isMobile) {
         return (
             <div>
@@ -670,7 +665,7 @@ const Table = ({ setError }) => {
                 <div className="mobile-ticker-section">
                     <div>
                         <label className="ticker-label">Ticker:</label>
-                        <input type="text" value={ticker_input} onChange={(e) => handleTickerChange(e, setTicker)} size="4" maxLength="4" onKeyDown={handleKeyDown} />
+                        <input type="text" value={ticker_input} onChange={(e) => handleTickerChange(e, setTicker)} size="5" maxLength="5" onKeyDown={handleKeyDown} />
                         <button onClick={run}>Calculate</button>
                         <button onClick={restore}>Restore</button>
                         <label className="status-indicator">{status}</label>
@@ -691,7 +686,6 @@ const Table = ({ setError }) => {
                             <td className="inputCell">
                                 <input type="number" value={FY1_input} step="0.01" min="0.01" onChange={(e) => handleInputChange(e, setFY1)} />
                             </td>
-                            <button className="edit">Edit</button>
                         </tr>
                         <tr>
                             <td>FY2 Consensus EPS Forecast ($)</td>
@@ -887,244 +881,244 @@ const Table = ({ setError }) => {
                 </div>
             </div>
         );
+    } else {
+        return (
+            <div>
+                <div className="ticker-section">
+                    <div>
+                        <button onClick={toggleInstructions}>See Instructions</button>
+                        <label className="ticker-label">Ticker:</label>
+                        <input type="text" value={ticker_input} onChange={(e) => handleTickerChange(e, setTicker)} size="5" maxLength="5" onKeyDown={handleKeyDown} />
+                        <button onClick={run}>Calculate</button>
+                        <button onClick={restore}>Restore</button>
+                        <label className="status-indicator">{status}</label>
+                    </div>
+                </div>
+                <div className={`instructions ${showInstructions ? "show" : ""}`}>
+                    <p>
+                        Instructions:
+                    </p>
+                    <ul>
+                        <li>Type in a Ticker for a US publicly traded company in the Ticker box.</li>
+                        <li>Click the "Calculate" button to compute valuations using Yahoo Finance data.</li>
+                        <li>You can also input your own data in some boxes and click "Calculate" for your own valuations.</li>
+                        <li>To restore the Yahoo Finance data, simply click the "Restore" button.</li>
+                    </ul>
+                </div>
+                <div className="flex-container">
+                    <div className="left-section">
+                        <table id="mainTable">
+                            <tr>
+                                <th colSpan="2">Summary of Input Data</th>
+                            </tr>
+                            <tr>
+                                <td>Current Fiscal Year EPS0 ($)</td>
+                                <td>{fy0}</td>
+                            </tr>
+                            <tr>
+                                <td>FY1 Consensus EPS Forecast ($)</td>
+                                <td className="inputCell">
+                                    <input type="number" value={FY1_input} step="0.01" min="0.01" onChange={(e) => handleInputChange(e, setFY1)} />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>FY2 Consensus EPS Forecast ($)</td>
+                                <td className="inputCell">
+                                    <input type="number" value={FY2_input} step="0.01" min="0.01" onChange={(e) => handleInputChange(e, setFY2)} />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td># Months to Fiscal Year End</td>
+                                <td>{monthsToFYE}</td>
+                            </tr>
+                            <tr>
+                                <td>Trailing 12-month EPS (FE0)</td>
+                                <td>{fe0}</td>
+                            </tr>
+                            <tr>
+                                <td>12-month forecast (FE1)</td>
+                                <td>{fe1}</td>
+                            </tr>
+                            <tr>
+                                <td>Subsequent 12 months (FE2)</td>
+                                <td>{fe2}</td>
+                            </tr>
+                            <tr>
+                                <td>Year 2 Growth Rate Forecast (g2)</td>
+                                <td className="input-cell-percentage">
+                                    <div class="percentage-cell-content">
+                                        <input type="number" value={growth_rate_input} step="0.1" min="1" max="75" onChange={(e) => handleInputChange(e, setGrowthRate)} />
+                                        <span>%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Plowback rate
+                                    <span className="tooltip" data-tooltip="1 - payout ratio"></span>
+                                </td>
+                                <td className="input-cell-percentage">
+                                    <input type="number" value={plowback_rate_input} step="0.01" max="1" min="0" onChange={(e) => handleInputChange(e, setPlowbackRate)} />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Steady-state EPS Growth</td>
+                                <td>
+                                    <div class="percentage-cell-content">
+                                        <span>{((eps_growth*100).toFixed(2))}</span>
+                                        <span>%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Steady-state ROI
+                                    <span className="tooltip" data-tooltip="Set to Cost of Equity"></span>
+                                </td>
+                                <td>
+                                    <div class="percentage-cell-content">
+                                        <span>{((cost_of_equity*100).toFixed(2))}</span>
+                                        <span>%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Book Value of Equity Per Share</td>
+                                <td>{book_value}</td>
+                            </tr>
+                            <tr>
+                                <td>Current Stock Price ($)</td>
+                                <td>{stock_price}</td>
+                            </tr>
+                            <tr>
+                                <td># Shares Outstanding ({shares_unit})</td>
+                                <td>{shares}</td>
+                            </tr>
+                            <tr>
+                                <td>Total Debt ({debt_unit} $)</td>
+                                <td>{debt}</td>
+                            </tr>
+                            <tr>
+                                <td>Total Cash ({cash_unit} $)</td>
+                                <td>{cash}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div className="right-section">
+                        <table id="costOfEquity">
+                            <tr>
+                                <th colSpan="2">
+                                    CAPM Cost of Equity Calculation
+                                    <span className="tooltip" id="tooltip-header" data-tooltip="CAPM: Capital Asset Pricing Model"></span>
+                                </th>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Risk-free rate
+                                    <span className="tooltip" data-tooltip="Yield on 30-year U.S. govt. bond"></span>
+                                </td>
+                                <td>
+                                    <div class="percentage-cell-content">
+                                        <span>{((risk_free_rate*100).toFixed(2))}</span>
+                                        <span>%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Raw Beta</td>
+                                <td className="inputCell">
+                                    <input type="number" value={beta} step="0.01" min="0.01" onChange={(e) => handleInputChange(e, setBeta)} />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Adjusted Beta
+                                    <span className="tooltip" data-tooltip="1/3 + 2/3*raw beta"></span>
+                                </td>
+                                <td>{adjusted_beta}</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Risk premium on U.S. market
+                                    <span className="tooltip" data-tooltip="rm - rf"></span>
+                                </td>
+                                <td className="input-cell-percentage">
+                                    <div class="percentage-cell-content">
+                                        <input type="number" value={risk_premium_input} step="0.01" min="0.01" onChange={(e) => handleInputChange(e, setRiskPremium)} />
+                                        <span>%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>CAPM Cost of Equity (re)</td>
+                                <td>
+                                    <div class="percentage-cell-content">
+                                        <span>{((cost_of_equity*100).toFixed(2))}</span>
+                                        <span>%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Implied Cost of Equity
+                                    <span className="tooltip" data-tooltip="This is the internal rate of return (IRR) that equates the intrinsic value of a stock to its price."></span>
+                                </td>
+                                <td>
+                                    <div class="percentage-cell-content">
+                                        <span>{((implied_cost_of_equity*100).toFixed(2))}</span>
+                                        <span>%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+                        <table id="valuationTable">
+                            <tr>
+                                <th colSpan="2">Equity & Firm Valuation</th>
+                            </tr>
+                            <tr>
+                                <td>Value of Equity Per Share ($)</td>
+                                <td>{intrinsic_value_of_equity_per_share_dfc}</td>
+                            </tr>
+                            <tr>
+                                <td>P/V Ratio</td>
+                                <td>{profit_volume_ratio}</td>
+                            </tr>
+                            <tr>
+                                <td>Value of assets-in-place ($)</td>
+                                <td>{assets_in_place_value}</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    PVGO ($)
+                                    <span className="tooltip" data-tooltip="Present Value of Growth Opportunities"></span>
+                                </td>
+                                <td>{pvgo}</td>
+                            </tr>
+                            <tr>
+                                <td>Value of Equity ({value_of_equity_unit} $)</td>
+                                <td>{value_of_equity}</td>
+                            </tr>
+                            <tr>
+                                <td>Value of Debt ({debt_unit} $)</td>
+                                <td>{debt}</td>
+                            </tr>
+                            <tr>
+                                <td>Total Firm Value ({firm_value_unit} $)</td>
+                                <td>{total_firm_value}</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Total Enterprise Value ({enterprise_value_unit} $)
+                                    <span className="tooltip" data-tooltip="total firm value - cash"></span>
+                                </td>
+                                <td>{total_enterprise_value}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        );
     }
-
-    return (
-        <div>
-            <div className="ticker-section">
-                <div>
-                    <button onClick={toggleInstructions}>See Instructions</button>
-                    <label className="ticker-label">Ticker:</label>
-                    <input type="text" value={ticker_input} onChange={(e) => handleTickerChange(e, setTicker)} size="4" maxLength="4" onKeyDown={handleKeyDown} />
-                    <button onClick={run}>Calculate</button>
-                    <button onClick={restore}>Restore</button>
-                    <label className="status-indicator">{status}</label>
-                </div>
-            </div>
-            <div className={`instructions ${showInstructions ? "show" : ""}`}>
-                <p>
-                    Instructions:
-                </p>
-                <ul>
-                    <li>Type in a Ticker for a US publicly traded company in the Ticker box.</li>
-                    <li>Click the "Calculate" button to compute valuations using Yahoo Finance data.</li>
-                    <li>You can also input your own data in some boxes and click "Calculate" for your own valuations.</li>
-                    <li>To restore the Yahoo Finance data, simply click the "Restore" button.</li>
-                </ul>
-            </div>
-            <div className="flex-container">
-                <div className="left-section">
-                    <table id="mainTable">
-                        <tr>
-                            <th colSpan="2">Summary of Input Data</th>
-                        </tr>
-                        <tr>
-                            <td>Current Fiscal Year EPS0 ($)</td>
-                            <td>{fy0}</td>
-                        </tr>
-                        <tr>
-                            <td>FY1 Consensus EPS Forecast ($)</td>
-                            <td className="inputCell">
-                                <input type="number" value={FY1_input} step="0.01" min="0.01" onChange={(e) => handleInputChange(e, setFY1)} />
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>FY2 Consensus EPS Forecast ($)</td>
-                            <td className="inputCell">
-                                <input type="number" value={FY2_input} step="0.01" min="0.01" onChange={(e) => handleInputChange(e, setFY2)} />
-                            </td>
-                        </tr>
-                        <tr>
-                            <td># Months to Fiscal Year End</td>
-                            <td>{monthsToFYE}</td>
-                        </tr>
-                        <tr>
-                            <td>Trailing 12-month EPS (FE0)</td>
-                            <td>{fe0}</td>
-                        </tr>
-                        <tr>
-                            <td>12-month forecast (FE1)</td>
-                            <td>{fe1}</td>
-                        </tr>
-                        <tr>
-                            <td>Subsequent 12 months (FE2)</td>
-                            <td>{fe2}</td>
-                        </tr>
-                        <tr>
-                            <td>Year 2 Growth Rate Forecast (g2)</td>
-                            <td className="input-cell-percentage">
-                                <div class="percentage-cell-content">
-                                    <input type="number" value={growth_rate_input} step="0.1" min="1" max="75" onChange={(e) => handleInputChange(e, setGrowthRate)} />
-                                    <span>%</span>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                Plowback rate
-                                <span className="tooltip" data-tooltip="1 - payout ratio"></span>
-                            </td>
-                            <td className="input-cell-percentage">
-                                <input type="number" value={plowback_rate_input} step="0.01" max="1" min="0" onChange={(e) => handleInputChange(e, setPlowbackRate)} />
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Steady-state EPS Growth</td>
-                            <td>
-                                <div class="percentage-cell-content">
-                                    <span>{((eps_growth*100).toFixed(2))}</span>
-                                    <span>%</span>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                Steady-state ROI
-                                <span className="tooltip" data-tooltip="Set to Cost of Equity"></span>
-                            </td>
-                            <td>
-                                <div class="percentage-cell-content">
-                                    <span>{((cost_of_equity*100).toFixed(2))}</span>
-                                    <span>%</span>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Book Value of Equity Per Share</td>
-                            <td>{book_value}</td>
-                        </tr>
-                        <tr>
-                            <td>Current Stock Price ($)</td>
-                            <td>{stock_price}</td>
-                        </tr>
-                        <tr>
-                            <td># Shares Outstanding ({shares_unit})</td>
-                            <td>{shares}</td>
-                        </tr>
-                        <tr>
-                            <td>Total Debt ({debt_unit} $)</td>
-                            <td>{debt}</td>
-                        </tr>
-                        <tr>
-                            <td>Total Cash ({cash_unit} $)</td>
-                            <td>{cash}</td>
-                        </tr>
-                    </table>
-                </div>
-                <div className="right-section">
-                    <table id="costOfEquity">
-                        <tr>
-                            <th colSpan="2">
-                                CAPM Cost of Equity Calculation
-                                <span className="tooltip" id="tooltip-header" data-tooltip="CAPM: Capital Asset Pricing Model"></span>
-                            </th>
-                        </tr>
-                        <tr>
-                            <td>
-                                Risk-free rate
-                                <span className="tooltip" data-tooltip="Yield on 30-year U.S. govt. bond"></span>
-                            </td>
-                            <td>
-                                <div class="percentage-cell-content">
-                                    <span>{((risk_free_rate*100).toFixed(2))}</span>
-                                    <span>%</span>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Raw Beta</td>
-                            <td className="inputCell">
-                                <input type="number" value={beta} step="0.01" min="0.01" onChange={(e) => handleInputChange(e, setBeta)} />
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                Adjusted Beta
-                                <span className="tooltip" data-tooltip="1/3 + 2/3*raw beta"></span>
-                            </td>
-                            <td>{adjusted_beta}</td>
-                        </tr>
-                        <tr>
-                            <td>
-                                Risk premium on U.S. market
-                                <span className="tooltip" data-tooltip="rm - rf"></span>
-                            </td>
-                            <td className="input-cell-percentage">
-                                <div class="percentage-cell-content">
-                                    <input type="number" value={risk_premium_input} step="0.01" min="0.01" onChange={(e) => handleInputChange(e, setRiskPremium)} />
-                                    <span>%</span>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>CAPM Cost of Equity (re)</td>
-                            <td>
-                                <div class="percentage-cell-content">
-                                    <span>{((cost_of_equity*100).toFixed(2))}</span>
-                                    <span>%</span>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                Implied Cost of Equity
-                                <span className="tooltip" data-tooltip="This is the internal rate of return (IRR) that equates the intrinsic value of a stock to its price."></span>
-                            </td>
-                            <td>
-                                <div class="percentage-cell-content">
-                                    <span>{((implied_cost_of_equity*100).toFixed(2))}</span>
-                                    <span>%</span>
-                                </div>
-                            </td>
-                        </tr>
-                    </table>
-                    <table id="valuationTable">
-                        <tr>
-                            <th colSpan="2">Equity & Firm Valuation</th>
-                        </tr>
-                        <tr>
-                            <td>Value of Equity Per Share ($)</td>
-                            <td>{intrinsic_value_of_equity_per_share_dfc}</td>
-                        </tr>
-                        <tr>
-                            <td>P/V Ratio</td>
-                            <td>{profit_volume_ratio}</td>
-                        </tr>
-                        <tr>
-                            <td>Value of assets-in-place ($)</td>
-                            <td>{assets_in_place_value}</td>
-                        </tr>
-                        <tr>
-                            <td>
-                                PVGO ($)
-                                <span className="tooltip" data-tooltip="Present Value of Growth Opportunities"></span>
-                            </td>
-                            <td>{pvgo}</td>
-                        </tr>
-                        <tr>
-                            <td>Value of Equity ({value_of_equity_unit} $)</td>
-                            <td>{value_of_equity}</td>
-                        </tr>
-                        <tr>
-                            <td>Value of Debt ({debt_unit} $)</td>
-                            <td>{debt}</td>
-                        </tr>
-                        <tr>
-                            <td>Total Firm Value ({firm_value_unit} $)</td>
-                            <td>{total_firm_value}</td>
-                        </tr>
-                        <tr>
-                            <td>
-                                Total Enterprise Value ({enterprise_value_unit} $)
-                                <span className="tooltip" data-tooltip="total firm value - cash"></span>
-                            </td>
-                            <td>{total_enterprise_value}</td>
-                        </tr>
-                    </table>
-                </div>
-            </div>
-        </div>
-    );
 };
 
 export default Table;
