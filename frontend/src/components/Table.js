@@ -3,6 +3,8 @@ import './Table.css';
 import axios from 'axios';
 import Decimal from 'decimal.js';
 
+// BUG: When ticker errors on retrieval, will remove error and say done after second attempt to calculate
+
 const Table = ({ setError, isMobile }) => {
     const [showInstructions, setShowInstructions] = useState(false);
     const toggleInstructions = () => {
@@ -337,16 +339,16 @@ const Table = ({ setError, isMobile }) => {
         setAssetsInPlace(parseFloat(assets_in_place_decimal).toFixed(2));
         setPVGO(parseFloat(pvgo_decimal).toFixed(2));
 
-        const equityValueData = calculateUnits(value_of_equity_decimal);
-        setValueOfEquity(equityValueData.value.toFixed(2));
+        const equityValueData = calculateUnits(value_of_equity_decimal, 2);
+        setValueOfEquity(equityValueData.value);
         setValueOfEquityUnit(equityValueData.unit);
 
-        const firmValueData = calculateUnits(firm_value_decimal);
-        setFirmValue(firmValueData.value.toFixed(2));
+        const firmValueData = calculateUnits(firm_value_decimal, 2);
+        setFirmValue(firmValueData.value);
         setFirmValueUnit(firmValueData.unit);
 
-        const enterpriseValueData = calculateUnits(enterprise_value_decimal);
-        setEnterpriseValue(enterpriseValueData.value.toFixed(2));
+        const enterpriseValueData = calculateUnits(enterprise_value_decimal, 2);
+        setEnterpriseValue(enterpriseValueData.value);
         setEnterpriseValueUnit(enterpriseValueData.unit);
 
         setStatus("Done!");
@@ -360,7 +362,7 @@ const Table = ({ setError, isMobile }) => {
             setStatus("Error");
             return;
         }
-        const url = 'https://z8r04ropn7.execute-api.us-east-1.amazonaws.com/default/valuation-backend-dev-hello?ticker=' + temp_ticker;
+        const url = '/api/stock?ticker=' + temp_ticker
         if(getting_values) {
             setError("Already Calculating Values");
             return;
@@ -371,6 +373,11 @@ const Table = ({ setError, isMobile }) => {
             const response = await axios.get(url);
             setStatus("Calculating Values...");
             const data = response.data;
+            if (data.hasOwnProperty("error")) {
+                setError("Error Retrieving Company Data: " + data["error"])
+                setStatus("Error");
+                return;
+            }
             setBaseTicker(ticker_input);
             data["stock_price"] = parseFloat(data["stock_price"]).toFixed(2)
 
@@ -515,7 +522,6 @@ const Table = ({ setError, isMobile }) => {
 
                 cost_of_equity_implied = cost_of_equity_implied.add(0.0001);
             }
-
             
             setFY1(data["fy1"]);
             setFY2(data["fy2"]);
@@ -528,13 +534,13 @@ const Table = ({ setError, isMobile }) => {
             setRiskFreeRate(data["risk_free_rate"]);
             setEpsGrowth(data["eps_growth"]);
 
-            const sharesData = calculateUnits(parseInt(data["shares"]));
+            const sharesData = calculateUnits(parseInt(data["shares"]), 0);
             setShares(sharesData.value);
             setSharesUnit(sharesData.unit);
-            const debtData = calculateUnits(parseInt(data["debt"]));
+            const debtData = calculateUnits(parseInt(data["debt"]), 0);
             setDebt(debtData.value);
             setDebtUnit(debtData.unit);
-            const cashData = calculateUnits(parseInt(data["cash"]));
+            const cashData = calculateUnits(parseInt(data["cash"]), 0);
             setCash(cashData.value);
             setCashUnit(cashData.unit);
 
@@ -552,14 +558,14 @@ const Table = ({ setError, isMobile }) => {
             setPVGO(parseFloat(pvgo_decimal).toFixed(2));
             setPlowbackRate(plowback_rate_decimal);
 
-            const equityValueData = calculateUnits(value_of_equity_decimal);
-            setValueOfEquity(equityValueData.value.toFixed(2));
+            const equityValueData = calculateUnits(value_of_equity_decimal, 2);
+            setValueOfEquity(equityValueData.value);
             setValueOfEquityUnit(equityValueData.unit);
-            const firmValueData = calculateUnits(firm_value_decimal);
-            setFirmValue(firmValueData.value.toFixed(2));
+            const firmValueData = calculateUnits(firm_value_decimal, 2);
+            setFirmValue(firmValueData.value);
             setFirmValueUnit(firmValueData.unit);
-            const enterpriseValueData = calculateUnits(enterprise_value_decimal);
-            setEnterpriseValue(enterpriseValueData.value.toFixed(2));
+            const enterpriseValueData = calculateUnits(enterprise_value_decimal, 2);
+            setEnterpriseValue(enterpriseValueData.value);
             setEnterpriseValueUnit(enterpriseValueData.unit);
 
             setAltFy1(data["fy1"]);
@@ -592,11 +598,11 @@ const Table = ({ setError, isMobile }) => {
             setAltDebtUnit(debtData.unit);
             setAltCash(cashData.value);
             setAltCashUnit(cashData.unit);
-            setAltValueOfEquity(equityValueData.value.toFixed(2));
+            setAltValueOfEquity(equityValueData.value);
             setAltValueOfEquityUnit(equityValueData.unit);
-            setAltFirmValue(firmValueData.value.toFixed(2));
+            setAltFirmValue(firmValueData.value);
             setAltFirmValueUnit(firmValueData.unit);
-            setAltEnterpriseValue(enterpriseValueData.value.toFixed(2));
+            setAltEnterpriseValue(enterpriseValueData.value);
             setAltEnterpriseValueUnit(enterpriseValueData.unit);
 
             setGettingValues(false);
@@ -619,12 +625,12 @@ const Table = ({ setError, isMobile }) => {
         }
     };
 
-    const calculateUnits = (value) => {
+    const calculateUnits = (value, decimal_precision) => {
         const units = ['', 'thousands', 'millions', 'billions', 'trillions', 'quadrillions', 'quintillions', 'sextillions'];
         const index = Math.floor(Math.log10(Math.abs(value)) / 3);
         const scaledValue = (value / Math.pow(10, index * 3));
         return {
-            value: scaledValue,
+            value: scaledValue.toFixed(decimal_precision),
             unit: units[index]
         };
     };
