@@ -3,7 +3,7 @@ import yfinance as yf
 from datetime import datetime
 import pandas as pd
 
-# BUG: Doesn't check if value is None before rounding
+# BUG: Doesn't check if value is None before rounding (SNOW for testing)
 
 # Flask app initialization
 app = Flask(__name__, static_folder="../frontend/build", static_url_path="")
@@ -115,4 +115,4 @@ def stock_handler():
     return jsonify(result)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5000)

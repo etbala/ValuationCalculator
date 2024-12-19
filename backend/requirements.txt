@@ -1,2 +1,2 @@
 yfinance>=0.2.50
-flask
+flask>=3.0.0
