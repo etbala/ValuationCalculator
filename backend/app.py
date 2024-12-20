@@ -61,37 +61,53 @@ def get_stock_data(ticker):
     try:
         stock = yf.Ticker(ticker)
         info = stock.info
+
+        # Check for Invalid Ticker
+        if info.get('shortName') == None:
+            stock_data["error"] = "Invalid Ticker"
+            return stock_data
+        
         balance_sheet = stock.balance_sheet
         earnings_forecast = stock.get_earnings_estimate()
 
-        fy1_avg, fy2_avg = parse_earnings_forecast(earnings_forecast)
-
-        stock_data["fy0"] = round(info.get("trailingEps", 0), 2)
-        stock_data["fy1"] = round(fy1_avg, 2)
-        stock_data["fy2"] = round(fy2_avg, 2)
-
+        # Parse Info
+        fy0 = info.get("trailingEps")
+        fy1, fy2 = parse_earnings_forecast(earnings_forecast)
         last_fiscal = info.get("lastFiscalYearEnd")
         next_fiscal = info.get("nextFiscalYearEnd")
-        stock_data["monthsToFYE"] = months_to_fye(last_fiscal, next_fiscal)
-
-        stock_data["payout_ratio"] = round(info.get("payoutRatio"), 2)
-        stock_data["eps_growth"] = EPS_GROWTH
-        stock_data["book_value"] = round(info.get("bookValue"), 2)
-        stock_data["stock_price"] = round(info.get("currentPrice"), 2)
-
-        stock_data["shares"] = info.get("sharesOutstanding", None)
-        total_debt = balance_sheet.loc["Total Debt", :].iloc[0] if "Total Debt" in balance_sheet.index else None
+        book_value = info.get("bookValue")
+        current_price = info.get("currentPrice")
+        shares = info.get("sharesOutstanding")
+        debt = balance_sheet.loc["Total Debt", :].iloc[0] if "Total Debt" in balance_sheet.index else None
         cash = balance_sheet.loc["Cash And Cash Equivalents", :].iloc[0] if "Cash And Cash Equivalents" in balance_sheet.index else None
-        stock_data["debt"] = total_debt
+        risk_free_rate = get_risk_free_rate()
+        beta = info.get("beta")
+
+        # TODO: Proper error messages if above fields are not properly intialized
+
+        # Optional Fields
+        payout_ratio = info.get("payoutRatio", 0)
+        forward_dividend_rate = info.get("dividendRate", 0)
+        trailing_dividend_rate = info.get("trailingAnnualDividendRate", 0)
+
+        # Prepare Output
+        stock_data["fy0"] = round(fy0, 2)
+        stock_data["fy1"] = round(fy1, 2)
+        stock_data["fy2"] = round(fy2, 2)
+        stock_data["monthsToFYE"] = months_to_fye(last_fiscal, next_fiscal)
+        stock_data["payout_ratio"] = round(payout_ratio, 2)
+        stock_data["eps_growth"] = EPS_GROWTH
+        stock_data["book_value"] = round(book_value, 2)
+        stock_data["stock_price"] = round(current_price, 2)
+        stock_data["shares"] = shares
+        stock_data["debt"] = debt
         stock_data["cash"] = cash
-
-        stock_data["risk_free_rate"] = round(get_risk_free_rate(), 4)
-        stock_data["beta"] = info.get("beta")
+        print(risk_free_rate)
+        stock_data["risk_free_rate"] = round(risk_free_rate, 4)
+        stock_data["beta"] = beta
         stock_data["risk_premium"] = RISK_PREMIUM
-
-        stock_data["forward_dividend_rate"] = info.get("dividendRate")
-        stock_data["trailing_dividend_rate"] = info.get("trailingAnnualDividendRate")
-
+        stock_data["forward_dividend_rate"] = forward_dividend_rate
+        stock_data["trailing_dividend_rate"] = trailing_dividend_rate
         return stock_data
 
     except Exception as e:
