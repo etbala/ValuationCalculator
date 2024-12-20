@@ -33,18 +33,5 @@ jobs:
       run: |
         docker push ${{ secrets.ECR_REPOSITORY_URI }}:latest
 
-    - name: Deploy to AWS App Runner
-      run: |
-        JSON_PAYLOAD=$(cat <<EOF
-        {
-          "ImageRepositoryConfiguration": {
-            "ImageIdentifier": "${{ secrets.ECR_REPOSITORY_URI }}:latest",
-            "ImageRepositoryType": "ECR"
-          }
-        }
-        EOF
-        )
-        aws apprunner update-service \
-          --service-name ${{ secrets.APP_RUNNER_SERVICE_NAME }} \
           --source-configuration "$JSON_PAYLOAD"
 
