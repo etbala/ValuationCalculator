@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "Valuation Calculator",
+  "name": "Equity & Firm Valuation Calculator",
   "start_url": ".",
   "display": "standalone",
   "theme_color": "#EFECEF",

@@ -1,5 +1,4 @@
 
-/* General and Desktop Version CSS */
 
 table {
     width: 90%;
@@ -9,7 +8,7 @@ table {
     background-color: var(--background);
     animation: fadeIn 0.5s ease-in-out;
 }
-  
+
 th,
 td {
     border: 1px solid var(--secondary);
@@ -130,12 +129,14 @@ label {
 .tooltip {
     position: relative;
     cursor: pointer;
+    display: inline-block;
+    margin-bottom: 0.9rem;
 }
 
 .tooltip::after {
     content: '?';
     position: absolute;
-    margin-left: 7px;
+    margin-left: 0.5rem;
     width: 15px;
     height: 15px;
     background-color: #E0E0E0;
@@ -168,8 +169,6 @@ label {
     font-weight: 500;
     color: var(--background);
 }
-
-/* Maybe have outline instead of filling in background? */
 
 #tooltip-header:hover::before {
     font-weight: 400;
@@ -208,45 +207,6 @@ label {
     font-size: 16px;
     padding: 6px 10px;
     margin-left: 3px;
-}
-
-/* Mobile Specific CSS */
-
-.mobile-tables-container {
-    align-items: center;
-    margin: 0px 150px;
-}
-
-.mobile-ticker-section {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin: 20px;
-    margin-top: 0px;
-    margin-bottom: 0px;
-    font-size: 25px;
-    font-weight: bold;
-    margin-left: 11px;
-}
-
-.mobile-instructions-section {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    margin-top: 20px;
-}
-
-.mobile-instruction-button {
-    font-size: 16px;
-    padding: 6px 10px;
-    margin-left: 0px;
-}
-
-#mobile-instructions {
-    margin: 0px;
 }
 
 #instruction-header {

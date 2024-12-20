@@ -3,6 +3,10 @@
     --background: #EFECEF;
     --primary: #4962A8;
     --secondary: #C5CCE4;
+    --accent: #343A40;
+
+    --positive-highlight: #28A745;
+    --negative-highlight: #DC3545;
 }
 
 @keyframes fadeIn {
@@ -32,6 +36,10 @@ body {
   text-align: center;
   padding-bottom: 0px;
   margin-bottom: 0px;
+}
+
+#main-header {
+  font-size: 2.5rem;
 }
 
 .main-container {

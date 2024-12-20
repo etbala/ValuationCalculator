@@ -1,7 +1,6 @@
 import './App.css';
 import React, { useState } from 'react';
 import Table from './components/Table';
-import {isMobile} from 'react-device-detect';
 
 function App() {
   const [error, setError] = useState("");
@@ -9,7 +8,7 @@ function App() {
   return (
       <div className="App">
         <header className="App-header">
-          <h1>Equity & Firm Valuation Calculator</h1>
+          <h1 id="main-header">Equity & Firm Valuation Calculator</h1>
           <div className="error-message-container">
             <div className={`error-message ${error ? "visible" : ""}`}>
               {error}
@@ -17,7 +16,7 @@ function App() {
           </div>
         </header>
         <main className="main-container">
-          <Table isMobile={isMobile} setError={setError} />
+          <Table setError={setError} />
         </main>
       </div>
   );
