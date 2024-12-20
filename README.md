@@ -16,8 +16,8 @@ Follow these instructions to set up and run the project locally:
 
 1. **Clone the Repository:**
    ```bash
-   git clone https://github.com/your-repository-link.git
-   cd equity-firm-valuation-calculator
+   git clone https://github.com/etbala/ValuationCalculator.git
+   cd ValuationCalculator
    ```
 
 2. **Build the Docker Image:**
