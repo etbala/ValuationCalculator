@@ -379,6 +379,7 @@ const Table = ({ setError }) => {
                 setStatus("Error");
                 return;
             }
+            
             setBaseTicker(ticker_input);
             data["stock_price"] = parseFloat(data["stock_price"]).toFixed(2)
 
@@ -399,7 +400,7 @@ const Table = ({ setError }) => {
             let fy2_decimal = new Decimal(data["fy2"]);
             let stock_price_decimal = new Decimal(data["stock_price"]);
 
-            if(fy1_decimal.lessThan(new Decimal(0)) || fy2_decimal.lessThan(new Decimal(0))) {
+            if(fy1_decimal.lessThan(new Decimal(0)) || fy2_decimal.lessThanOrEqualTo(new Decimal(0))) {
                 setError("Firm Cannot Be Valued: Negative Projected Earnings");
                 setGettingValues(false);
                 setStatus("Error");
@@ -409,7 +410,7 @@ const Table = ({ setError }) => {
             let plowback_rate_decimal = new Decimal(0);
             if(payout_ratio === "N/A") {
                 if(trailing_dividend_rate === "N/A") {
-                    setError("Not enough information to calculate payout ratio.");
+                    setError("Not enough information to compute payout ratio.");
                     setGettingValues(false);
                     setStatus("Error");
                     return;

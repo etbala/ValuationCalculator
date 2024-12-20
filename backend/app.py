@@ -3,8 +3,6 @@ import yfinance as yf
 from datetime import datetime
 import pandas as pd
 
-# BUG: Doesn't check if value is None before rounding (SNOW for testing)
-
 # Flask app initialization
 app = Flask(__name__, static_folder="../frontend/build", static_url_path="")
 
@@ -40,9 +38,10 @@ def months_to_fye(last_fiscal, next_fiscal):
 def parse_earnings_forecast(forecast_df):
     """Parses the earnings forecast dataframe to extract fy1 and fy2 values."""
     try:
+        fy0 = None
         fy1_avg = None
         fy2_avg = None
-        
+
         if isinstance(forecast_df, pd.DataFrame):
             if 'avg' in forecast_df.columns:
                 fy1_row = forecast_df.loc[forecast_df.index == '0y']
@@ -50,10 +49,14 @@ def parse_earnings_forecast(forecast_df):
                 
                 fy1_avg = fy1_row['avg'].values[0] if not fy1_row.empty else None
                 fy2_avg = fy2_row['avg'].values[0] if not fy2_row.empty else None
+
+            if 'yearAgoEps' in forecast_df.columns:
+                fy1_row = forecast_df.loc[forecast_df.index == '0y']
+                fy0 = fy1_row['yearAgoEps'].values[0] if not fy1_row.empty else None
         
-        return fy1_avg, fy2_avg
+        return fy0, fy1_avg, fy2_avg
     except Exception:
-        return None, None
+        return None, None, None
 
 def get_stock_data(ticker):
     stock_data = {}
@@ -62,17 +65,20 @@ def get_stock_data(ticker):
         stock = yf.Ticker(ticker)
         info = stock.info
 
-        # Check for Invalid Ticker
-        if info.get('shortName') == None:
+        if info.get('longName') == None:
             stock_data["error"] = "Invalid Ticker"
             return stock_data
         
         balance_sheet = stock.balance_sheet
-        earnings_forecast = stock.get_earnings_estimate()
+        forecast = stock.get_earnings_estimate()
 
-        # Parse Info (Required Fields)
-        fy0 = info.get("trailingEps")
-        fy1, fy2 = parse_earnings_forecast(earnings_forecast)
+        fy0, fy1, fy2 = parse_earnings_forecast(forecast)
+        if fy0 is None:
+            stock_data["error"] = "Earnings Forecast Unavailable"
+            return stock_data
+
+        # TODO: Make fy1/fy2 optional (need to implement functionality on frontend)
+
         last_fiscal = info.get("lastFiscalYearEnd")
         next_fiscal = info.get("nextFiscalYearEnd")
         book_value = info.get("bookValue")
@@ -98,15 +104,15 @@ def get_stock_data(ticker):
         stock_data["fy2"] = round(fy2, 2)
         stock_data["monthsToFYE"] = months_to_fye(last_fiscal, next_fiscal)
         stock_data["payout_ratio"] = round(payout_ratio, 2)
+        stock_data["forward_dividend_rate"] = forward_dividend_rate
+        stock_data["trailing_dividend_rate"] = trailing_dividend_rate
         stock_data["book_value"] = round(book_value, 2)
         stock_data["stock_price"] = round(current_price, 2)
         stock_data["shares"] = shares
         stock_data["debt"] = debt
         stock_data["cash"] = cash
-        stock_data["risk_free_rate"] = round(risk_free_rate, 4)
         stock_data["beta"] = round(beta, 2)
-        stock_data["forward_dividend_rate"] = forward_dividend_rate
-        stock_data["trailing_dividend_rate"] = trailing_dividend_rate
+        stock_data["risk_free_rate"] = round(risk_free_rate, 4)
         return stock_data
 
     except Exception as e:
