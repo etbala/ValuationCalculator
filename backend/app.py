@@ -70,7 +70,7 @@ def get_stock_data(ticker):
         balance_sheet = stock.balance_sheet
         earnings_forecast = stock.get_earnings_estimate()
 
-        # Parse Info
+        # Parse Info (Required Fields)
         fy0 = info.get("trailingEps")
         fy1, fy2 = parse_earnings_forecast(earnings_forecast)
         last_fiscal = info.get("lastFiscalYearEnd")
@@ -91,21 +91,20 @@ def get_stock_data(ticker):
         trailing_dividend_rate = info.get("trailingAnnualDividendRate", 0)
 
         # Prepare Output
+        stock_data["eps_growth"] = EPS_GROWTH
+        stock_data["risk_premium"] = RISK_PREMIUM
         stock_data["fy0"] = round(fy0, 2)
         stock_data["fy1"] = round(fy1, 2)
         stock_data["fy2"] = round(fy2, 2)
         stock_data["monthsToFYE"] = months_to_fye(last_fiscal, next_fiscal)
         stock_data["payout_ratio"] = round(payout_ratio, 2)
-        stock_data["eps_growth"] = EPS_GROWTH
         stock_data["book_value"] = round(book_value, 2)
         stock_data["stock_price"] = round(current_price, 2)
         stock_data["shares"] = shares
         stock_data["debt"] = debt
         stock_data["cash"] = cash
-        print(risk_free_rate)
         stock_data["risk_free_rate"] = round(risk_free_rate, 4)
-        stock_data["beta"] = beta
-        stock_data["risk_premium"] = RISK_PREMIUM
+        stock_data["beta"] = round(beta, 2)
         stock_data["forward_dividend_rate"] = forward_dividend_rate
         stock_data["trailing_dividend_rate"] = trailing_dividend_rate
         return stock_data
