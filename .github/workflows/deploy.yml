@@ -14,6 +14,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v3
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Debug AWS Credentials
+      run: |
+        aws sts get-caller-identity
+
     - name: Log in to Amazon ECR
       run: |
         aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.ECR_REPOSITORY_URI }}
@@ -40,3 +51,4 @@ jobs:
         aws apprunner update-service \
           --service-name ${{ secrets.APP_RUNNER_SERVICE_NAME }} \
           --source-configuration "$JSON_PAYLOAD"
+
