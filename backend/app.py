@@ -64,11 +64,17 @@ def get_stock_data(ticker):
     try:
         stock = yf.Ticker(ticker)
         info = stock.info
-
-        if info.get('longName') == None:
+        
+        if info.get('shortName') == None:
             stock_data["error"] = "Invalid Ticker"
             return stock_data
-        
+
+        # Prepare Ticker Context Output
+        stock_data["name"] = info.get('shortName')
+        stock_data["website"] = info.get('website')
+        stock_data["industry"] = info.get('industry')
+        stock_data["sector"] = info.get('sector')
+
         balance_sheet = stock.balance_sheet
         forecast = stock.get_earnings_estimate()
 
@@ -96,7 +102,7 @@ def get_stock_data(ticker):
         forward_dividend_rate = info.get("dividendRate", 0)
         trailing_dividend_rate = info.get("trailingAnnualDividendRate", 0)
 
-        # Prepare Output
+        # Prepare Financial Statistics Output
         stock_data["eps_growth"] = EPS_GROWTH
         stock_data["risk_premium"] = RISK_PREMIUM
         stock_data["fy0"] = round(fy0, 2)
@@ -118,14 +124,6 @@ def get_stock_data(ticker):
     except Exception as e:
         return {"error": str(e)}
 
-@app.route("/")
-def index():
-    return send_from_directory(app.static_folder, "index.html")
-
-@app.route("/<path:path>")
-def static_proxy(path):
-    return send_from_directory(app.static_folder, path)
-
 @app.route("/api/stock", methods=["GET"])
 def stock_handler():
     ticker = request.args.get("ticker")
@@ -134,6 +132,15 @@ def stock_handler():
 
     result = get_stock_data(ticker)
     return jsonify(result)
+
+# Point to React Frontend
+@app.route("/")
+def index():
+    return send_from_directory(app.static_folder, "index.html")
+
+@app.route("/<path:path>")
+def static_proxy(path):
+    return send_from_directory(app.static_folder, path)
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=5000)
