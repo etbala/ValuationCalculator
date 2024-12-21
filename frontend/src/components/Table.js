@@ -3,13 +3,8 @@ import './Table.css';
 import axios from 'axios';
 import Decimal from 'decimal.js';
 
-// BUG: When ticker errors on retrieval, will remove error and say done after second attempt to calculate
-
 const Table = ({ setError }) => {
     const [showInstructions, setShowInstructions] = useState(false);
-    const toggleInstructions = () => {
-        setShowInstructions(!showInstructions);
-    };
 
     const [status, setStatus] = useState("");
     
@@ -92,8 +87,6 @@ const Table = ({ setError }) => {
 
     const [getting_values, setGettingValues] = useState(false);
 
-    let growth_rate_changed = false;
-
     let fy1 = 0;
     let fy2 = 0;
     let risk_premium = 5.00;
@@ -101,19 +94,6 @@ const Table = ({ setError }) => {
     let alt_growth_rate = 0;
     let plowback_rate = 0;
 
-    // Discounted Cash Flow Calculations (15 Transition Years)
-    let g = [];                                         // Growth in New Income or EPS
-    let k = [];                                         // Plowback Rate
-    let eps = [];                                       // Earnings Per Share before Extraordinary Items
-    let net_new_equity_investments = [];                // Net New Equity Investments
-    let fcfe = [];                                      // Free Cash Flow to Equity
-    let fcfe_growth = [];                               // Free Cash Flow to Equity Growth
-    let book_value_per_share = [];                      // Book Value Per Share
-    let roe = [];                                       // Return on Book Equity
-    let roi = [];                                       // Return on new equity Investments
-    let ri = [];                                        // Residual Income (EVA for Shareholders)
-    let roe_less_re = [];                               // ROE - Cost of Equity
-    
     // Function to handle user input changes
     const handleInputChange = (e, setter) => {
         const newValue = e.target.value;
@@ -131,52 +111,62 @@ const Table = ({ setError }) => {
         }
     };
 
+    const toggleInstructions = () => setShowInstructions(!showInstructions);
+
     const handleKeyDown = (event) => {
         if(event.key === 'Enter') {
             run();
         }
     }
 
-    const run = () => {
-        if(ticker_input === ticker && getting_values === false && ticker !== "") {
-            if(FY1_input <= 0 || FY2_input <= 0) {
-                setError("Unable to value firm due to negative values for FY1 or FY2");
-                return;
-            } else if(plowback_rate_input < 0) {
-                setError("Unable to value firm due to negative plowback rate");
-                return;
-            } else if(plowback_rate_input > 1) {
-                setError("Unable to value firm due as plowback rate is > 1");
-                return;
-            } else if(growth_rate_input < 1) {
-                setError("Unable to value firm as Growth Rate Forecast is < 1%");
-                return;
-            } else if(growth_rate_input > 75) {
-                setError("Unable to value firm as Growth Rate Forecast is > 75%");
-                return;
-            } else if(beta <= 0) {
-                setError("Unable to value firm due to negative beta");
-                return;
-            } else if(risk_premium_input <= 0) {
-                setError("Unable to value firm due to negative risk premium");
-                return;
-            }
+    const calculateUnits = (value, decimal_precision) => {
+        const units = ['', 'thousands', 'millions', 'billions', 'trillions', 'quadrillions', 'quintillions', 'sextillions'];
+        const index = Math.floor(Math.log10(Math.abs(value)) / 3);
+        const scaledValue = (value / Math.pow(10, index * 3));
+        return {
+            value: scaledValue.toFixed(decimal_precision),
+            unit: units[index]
+        };
+    };
 
-            fy1 = FY1_input;
-            fy2 = FY2_input;
-            plowback_rate = plowback_rate_input;
-            risk_premium = risk_premium_input/100;
-
-            if(growth_rate !== growth_rate_input/100) {
-                growth_rate_changed = true;
-            }
-            growth_rate = growth_rate_input/100;
-
-            calculateValues();
-        } else {
-            setStatus("Retrieving Data...");
-            getValues();
+    const reverseCalculateUnits = (scaledValue, unit) => {
+        const units = ['', 'thousands', 'millions', 'billions', 'trillions', 'quadrillions', 'quintillions', 'sextillions'];
+    
+        // Find the index of the given unit
+        const index = units.indexOf(unit);
+    
+        if (index === -1) {
+            throw new Error('Invalid unit provided.');
         }
+    
+        // Calculate the original value using the formula: originalValue = scaledValue * 10^(index * 3)
+        const originalValue = scaledValue * Math.pow(10, index * 3);
+    
+        return originalValue;
+    };
+
+    const validateInputs = () => {
+        if(FY1_input <= 0 || FY2_input <= 0) {
+            setError("Unable to value firm due to non-positive FY1 or FY2");
+            return false;
+        }
+        if(plowback_rate_input < 0 || plowback_rate_input > 1) {
+            setError("Plowback rate must be between 0 and 1");
+            return false;
+        }
+        if(growth_rate_input < 1 || growth_rate_input > 75) {
+            setError("Growth Rate Forecast must be between 1% and 75%");
+            return false;
+        }
+        if(beta <= 0) {
+            setError("Unable to value firm due to non-positive beta");
+            return false;
+        }
+        if(risk_premium_input <= 0) {
+            setError("Unable to value firm due to non-positive risk premium");
+            return false;
+        }
+        return true;
     };
 
     const restore = () => {
@@ -223,36 +213,41 @@ const Table = ({ setError }) => {
         setStatus("Restored!");
     }
 
-    const calculateValues = () => {
-        setStatus("Calculating Values...");
-        let shares_decimal = new Decimal(reverseCalculateUnits(shares, shares_unit));
-        let debt_decimal = new Decimal(reverseCalculateUnits(debt, debt_unit));
-        let cash_decimal = new Decimal(reverseCalculateUnits(cash, cash_unit));
+    // Compute Intrinsic Value of Company via Discounted Cash Flows
+    const computeIntrinsicValue = (params) => {
+        const { shares_dec, debt_dec, cash_dec, rfr_dec, beta_dec, book_value_dec, 
+                plowback_rate_dec, fy0_dec, fy1_dec, fy2_dec, eps_growth_dec, monthsToFYE_dec, 
+                stock_price_dec, risk_premium_dec, growth_rate_dec } = params;
 
-        let adjusted_beta_decimal = new Decimal(1).dividedBy(3).plus(new Decimal(2).dividedBy(3).times(beta));
-        let cost_of_equity_decimal = adjusted_beta_decimal.times(risk_premium).plus(risk_free_rate);
+        const adjusted_beta_dec = new Decimal(1).div(3).plus(new Decimal(2).div(3).times(beta_dec));
+        const cost_of_equity_dec = adjusted_beta_dec.times(risk_premium_dec).plus(rfr_dec);
+        const fe0_dec = monthsToFYE_dec.div(12).times(fy0_dec).plus(new Decimal(1).minus(monthsToFYE_dec.div(12)).times(fy1_dec));
+        const fe1_dec = monthsToFYE_dec.div(12).times(fy1_dec).plus(new Decimal(1).minus(monthsToFYE_dec.div(12)).times(fy2_dec));
+        const fe2_dec = fe1_dec.times(new Decimal(1).plus(growth_rate_dec));
 
-        let growth_rate_decimal = new Decimal(growth_rate);
-        if(!growth_rate_changed) {
-            growth_rate_decimal = new Decimal(fy2).dividedBy(fy1).minus(1);
-        }
-        
-        let monthsToFYE_decimal = new Decimal(monthsToFYE);
-        let fe0_decimal = new Decimal(monthsToFYE_decimal).div(12).times(fy0).plus(new Decimal(1).minus(monthsToFYE_decimal.div(12)).times(fy1));
-        let fe1_decimal = new Decimal(monthsToFYE_decimal).div(12).times(fy1).plus(new Decimal(1).minus(monthsToFYE_decimal.div(12)).times(fy2));
-        let fe2_decimal = new Decimal(fe1_decimal).times(new Decimal(1).plus(growth_rate_decimal));
-        
-        g[2] = growth_rate_decimal;
-        k[0] = new Decimal(plowback_rate);
-        k[1] = new Decimal(plowback_rate);
-        eps[0] = fe0_decimal;
-        eps[1] = fe1_decimal;
-        eps[2] = fe2_decimal;
-        book_value_per_share[0] = new Decimal(book_value);
-        
-        let temp = Decimal.exp(new Decimal(1).div(15).times(Decimal.log(new Decimal(eps_growth).div(growth_rate_decimal), Decimal.exp(1))));
+        let g = [];                             // Growth in New Income or EPS
+        let k = [];                             // Plowback Rate
+        let eps = [];                           // Earnings Per Share before Extraordinary Items
+        let net_new_equity_investments = [];    // Net New Equity Investments
+        let fcfe = [];                          // Free Cash Flow to Equity
+        let fcfe_growth = [];                   // Free Cash Flow to Equity Growth
+        let book_value_per_share = [];          // Book Value Per Share
+        let roe = [];                           // Return on Book Equity
+        let roi = [];                           // Return on new equity Investments
+        let ri = [];                            // Residual Income (EVA for Shareholders)
+        let roe_less_re = [];                   // ROE - Cost of Equity
+
+        g[2] = growth_rate_dec;
+        k[0] = plowback_rate_dec;
+        k[1] = plowback_rate_dec;
+        eps[0] = fe0_dec;
+        eps[1] = fe1_dec;
+        eps[2] = fe2_dec;
+        book_value_per_share[0] = book_value_dec;
+
+        let temp = Decimal.exp(new Decimal(1).div(15).times(Decimal.log(new Decimal(eps_growth_dec).div(growth_rate_dec), Decimal.exp(1))));
         for(let i = 3; i <= 16; i++) { g[i] = new Decimal(g[i-1]).times(temp); }
-        for(let i = 2; i <= 16; i++) { k[i] = new Decimal(k[i-1]).minus(new Decimal(plowback_rate).minus((new Decimal(eps_growth).dividedBy(cost_of_equity_decimal))).dividedBy(new Decimal(15))); }
+        for(let i = 2; i <= 16; i++) { k[i] = new Decimal(k[i-1]).minus(plowback_rate_dec.minus((new Decimal(eps_growth_dec).dividedBy(cost_of_equity_dec))).dividedBy(new Decimal(15))); }
         for(let i = 3; i <= 16; i++) { eps[i] = new Decimal(eps[i-1]).times((g[i].plus(new Decimal(1)))); }
         for(let i = 0; i <= 16; i++) { net_new_equity_investments[i] = new Decimal(k[i]).times(eps[i]); }
         for(let i = 0; i <= 16; i++) { fcfe[i] = new Decimal(eps[i]).minus(net_new_equity_investments[i]); }
@@ -260,48 +255,66 @@ const Table = ({ setError }) => {
         for(let i = 1; i <= 16; i++) { book_value_per_share[i] = new Decimal(book_value_per_share[i-1]).plus(eps[i]).minus(fcfe[i]); }
         for(let i = 1; i <= 16; i++) { roe[i] = new Decimal(eps[i]).dividedBy(book_value_per_share[i-1]); }
         for(let i = 1; i <= 16; i++) { roi[i] = new Decimal(eps[i]).minus(eps[i-1]).dividedBy(net_new_equity_investments[i-1]); }
-        for(let i = 1; i <= 16; i++) { roe_less_re[i] = new Decimal(roe[i]).minus(cost_of_equity_decimal); }
+        for(let i = 1; i <= 16; i++) { roe_less_re[i] = new Decimal(roe[i]).minus(cost_of_equity_dec); }
         for(let i = 1; i <= 16; i++) { ri[i] = new Decimal(roe_less_re[i]).times(book_value_per_share[i-1]); }
 
         // Discounted Free Cash Flow Valuation
         let fcfe_pv = new Decimal(0);
-        for(let i = 1; i <= 16; i++) { fcfe_pv = fcfe_pv.plus(fcfe[i].div(Decimal.pow(new Decimal(1).plus(cost_of_equity_decimal), i))); }
+        for(let i = 1; i <= 16; i++) { fcfe_pv = fcfe_pv.plus(fcfe[i].div(Decimal.pow(new Decimal(1).plus(cost_of_equity_dec), i))); }
         let continuing_value_cash_flow_based = new Decimal(1)
-            .div(Decimal.pow(new Decimal(1).plus(cost_of_equity_decimal), 15))
-            .times(fcfe[16].div(cost_of_equity_decimal.minus(new Decimal(eps_growth))));
-        let intrinsic_value_decimal = fcfe_pv.plus(continuing_value_cash_flow_based);
-        let pv_ratio_decimal = new Decimal(stock_price).div(intrinsic_value_decimal);
+            .div(Decimal.pow(new Decimal(1).plus(cost_of_equity_dec), 15))
+            .times(fcfe[16].div(cost_of_equity_dec.minus(new Decimal(eps_growth_dec))));
+        let intrinsic_value_dec = fcfe_pv.plus(continuing_value_cash_flow_based);
+        let pv_ratio_dec = stock_price_dec.div(intrinsic_value_dec);
 
         // Value of assets in place & PVGO
-        let assets_in_place_decimal = new Decimal(fe1_decimal).dividedBy(cost_of_equity_decimal);
-        let pvgo_decimal = intrinsic_value_decimal.minus(assets_in_place_decimal);
+        let assets_in_place_dec = fe1_dec.dividedBy(cost_of_equity_dec);
+        let pvgo_dec = intrinsic_value_dec.minus(assets_in_place_dec);
 
         // Firm Valuation
-        let value_of_equity_decimal = intrinsic_value_decimal.times(shares_decimal);
-        let firm_value_decimal = value_of_equity_decimal.plus(debt_decimal);
-        let enterprise_value_decimal = firm_value_decimal.minus(cash_decimal);
-        
+        let value_of_equity_dec = intrinsic_value_dec.times(shares_dec);
+        let firm_value_dec = value_of_equity_dec.plus(debt_dec);
+        let enterprise_value_dec = firm_value_dec.minus(cash_dec);
+
+        // Implied Cost of Equity
+        let cost_of_equity_implied = findImpliedCostOfEquity({
+            fe0_dec, fe1_dec, fe2_dec, eps_growth_dec, growth_rate_dec, plowback_rate_dec, book_value_dec, stock_price_dec
+        });
+
+        return {
+            adjusted_beta_dec, cost_of_equity_dec, cost_of_equity_implied, fe0_dec, fe1_dec, fe2_dec,
+            intrinsic_value_dec, pv_ratio_dec, assets_in_place_dec, pvgo_dec,
+            value_of_equity_dec, firm_value_dec, enterprise_value_dec, growth_rate_dec
+        };
+    };
+
+    // Compute the Internal Rate of Return that equates the intrinsic value of a stock to its price
+    const findImpliedCostOfEquity = ({ fe0_dec, fe1_dec, fe2_dec, eps_growth_dec, growth_rate_dec, plowback_rate_dec, book_value_dec, stock_price_dec }) => {
+        let g = [];                             // Growth in New Income or EPS
+        let k = [];                             // Plowback Rate
+        let eps = [];                           // Earnings Per Share before Extraordinary Items
+        let net_new_equity_investments = [];    // Net New Equity Investments
+        let fcfe = [];                          // Free Cash Flow to Equity
+        let fcfe_growth = [];                   // Free Cash Flow to Equity Growth
+        let book_value_per_share = [];          // Book Value Per Share
+        let roe = [];                           // Return on Book Equity
+        let roi = [];                           // Return on new equity Investments
+        let ri = [];                            // Residual Income (EVA for Shareholders)
+        let roe_less_re = [];                   // ROE - Cost of Equity
+
         let cost_of_equity_implied = new Decimal(0.0001);
         while(true) {
-            g[2] = growth_rate_decimal;
-            k[0] = plowback_rate;
-            k[1] = plowback_rate;
-            eps[0] = fe0_decimal;
-            eps[1] = fe1_decimal;
-            eps[2] = fe2_decimal;
-            book_value_per_share[0] = new Decimal(book_value);
+            g[2] = growth_rate_dec;
+            k[0] = plowback_rate_dec;
+            k[1] = plowback_rate_dec;
+            eps[0] = fe0_dec;
+            eps[1] = fe1_dec;
+            eps[2] = fe2_dec;
+            book_value_per_share[0] = book_value_dec;
             
-            g[2] = growth_rate_decimal;
-            k[0] = new Decimal(plowback_rate);
-            k[1] = new Decimal(plowback_rate);
-            eps[0] = fe0_decimal;
-            eps[1] = fe1_decimal;
-            eps[2] = fe2_decimal;
-            book_value_per_share[0] = new Decimal(book_value);
-            
-            let temp = Decimal.exp(new Decimal(1).div(15).times(Decimal.log(new Decimal(eps_growth).div(growth_rate_decimal), Decimal.exp(1))));
+            let temp = Decimal.exp(new Decimal(1).div(15).times(Decimal.log(new Decimal(eps_growth_dec).div(growth_rate_dec), Decimal.exp(1))));
             for(let i = 3; i <= 16; i++) { g[i] = new Decimal(g[i-1]).times(temp); }
-            for(let i = 2; i <= 16; i++) { k[i] = new Decimal(k[i-1]).minus(new Decimal(plowback_rate).minus((new Decimal(eps_growth).dividedBy(cost_of_equity_implied))).dividedBy(new Decimal(15))); }
+            for(let i = 2; i <= 16; i++) { k[i] = new Decimal(k[i-1]).minus(plowback_rate_dec.minus((new Decimal(eps_growth_dec).dividedBy(cost_of_equity_implied))).dividedBy(new Decimal(15))); }
             for(let i = 3; i <= 16; i++) { eps[i] = new Decimal(eps[i-1]).times((g[i].plus(new Decimal(1)))); }
             for(let i = 0; i <= 16; i++) { net_new_equity_investments[i] = new Decimal(k[i]).times(eps[i]); }
             for(let i = 0; i <= 16; i++) { fcfe[i] = new Decimal(eps[i]).minus(net_new_equity_investments[i]); }
@@ -317,37 +330,63 @@ const Table = ({ setError }) => {
             for(let i = 1; i <= 16; i++) { fcfe_pv = fcfe_pv.plus(fcfe[i].div(Decimal.pow(new Decimal(1).plus(cost_of_equity_implied), i))); }
             let continuing_value_cash_flow_based = new Decimal(1)
                 .div(Decimal.pow(new Decimal(1).plus(cost_of_equity_implied), 15))
-                .times(fcfe[16].div(cost_of_equity_implied.minus(new Decimal(eps_growth))));
+                .times(fcfe[16].div(cost_of_equity_implied.minus(new Decimal(eps_growth_dec))));
             let intrinsic_value_implied = fcfe_pv.plus(continuing_value_cash_flow_based);
 
-            if(intrinsic_value_implied.lessThanOrEqualTo(new Decimal(stock_price))) {
+            if(intrinsic_value_implied.lessThanOrEqualTo(stock_price_dec)) {
+                break;
+            }
+
+            // Backup to prevent infinite loop in case of error
+            if (cost_of_equity_implied.greaterThanOrEqualTo(2)) {
                 break;
             }
             cost_of_equity_implied = cost_of_equity_implied.add(0.0001);
         }
-        
-        setAdjustedBeta(parseFloat(adjusted_beta_decimal).toFixed(2));
-        setGrowthRate(parseFloat(growth_rate_decimal.times(100)).toFixed(1));
-        growth_rate = growth_rate_decimal.toNumber().toFixed(3);
-        setCostOfEquity(parseFloat(cost_of_equity_decimal));
-        setImpliedCostOfEquity(parseFloat(cost_of_equity_implied));
-        setFe0(parseFloat(fe0_decimal).toFixed(2));
-        setFe1(parseFloat(fe1_decimal).toFixed(2));
-        setFe2(parseFloat(fe2_decimal).toFixed(2));
-        setIntrinsicValue(parseFloat(intrinsic_value_decimal).toFixed(2));
-        setProfitVolumeRatio(parseFloat(pv_ratio_decimal).toFixed(2));
-        setAssetsInPlace(parseFloat(assets_in_place_decimal).toFixed(2));
-        setPVGO(parseFloat(pvgo_decimal).toFixed(2));
+        return cost_of_equity_implied;
+    };
 
-        const equityValueData = calculateUnits(value_of_equity_decimal, 2);
+    const calculateValues = () => {
+        setStatus("Calculating Values...");
+
+        let shares_dec = new Decimal(reverseCalculateUnits(shares, shares_unit));
+        let debt_dec = new Decimal(reverseCalculateUnits(debt, debt_unit));
+        let cash_dec = new Decimal(reverseCalculateUnits(cash, cash_unit));
+
+        // Prepare parameters for final calculation
+        const valuationParams = {
+            shares_dec: shares_dec, debt_dec: debt_dec, cash_dec: cash_dec,
+            rfr_dec: new Decimal(risk_free_rate), beta_dec: new Decimal(beta), 
+            book_value_dec: new Decimal(book_value), plowback_rate_dec: new Decimal(plowback_rate), 
+            fy0_dec: new Decimal(fy0), fy1_dec: new Decimal(fy1), fy2_dec: new Decimal(fy2), 
+            eps_growth_dec: new Decimal(eps_growth), monthsToFYE_dec: new Decimal(monthsToFYE),
+            stock_price_dec: new Decimal(stock_price), risk_premium_dec: new Decimal(risk_premium),
+            growth_rate_dec: new Decimal(growth_rate)
+        };
+
+        const valuation = computeIntrinsicValue(valuationParams);
+
+        setAdjustedBeta(parseFloat(valuation.adjusted_beta_dec).toFixed(2));
+        setGrowthRate(parseFloat(valuation.growth_rate_dec.times(100)).toFixed(1));
+        setCostOfEquity(parseFloat(valuation.cost_of_equity_dec));
+        setImpliedCostOfEquity(parseFloat(valuation.cost_of_equity_implied));
+        setFe0(parseFloat(valuation.fe0_dec).toFixed(2));
+        setFe1(parseFloat(valuation.fe1_dec).toFixed(2));
+        setFe2(parseFloat(valuation.fe2_dec).toFixed(2));
+        setIntrinsicValue(parseFloat(valuation.intrinsic_value_dec).toFixed(2));
+        setProfitVolumeRatio(parseFloat(valuation.pv_ratio_dec).toFixed(2));
+        setAssetsInPlace(parseFloat(valuation.assets_in_place_dec).toFixed(2));
+        setPVGO(parseFloat(valuation.pvgo_dec).toFixed(2));
+
+        const equityValueData = calculateUnits(valuation.value_of_equity_dec, 2);
         setValueOfEquity(equityValueData.value);
         setValueOfEquityUnit(equityValueData.unit);
 
-        const firmValueData = calculateUnits(firm_value_decimal, 2);
+        const firmValueData = calculateUnits(valuation.firm_value_dec, 2);
         setFirmValue(firmValueData.value);
         setFirmValueUnit(firmValueData.unit);
 
-        const enterpriseValueData = calculateUnits(enterprise_value_decimal, 2);
+        const enterpriseValueData = calculateUnits(valuation.enterprise_value_dec, 2);
         setEnterpriseValue(enterpriseValueData.value);
         setEnterpriseValueUnit(enterpriseValueData.unit);
 
@@ -358,16 +397,17 @@ const Table = ({ setError }) => {
     const getValues = async() => {
         let temp_ticker = ticker_input.replace(/\s+/g, '').toUpperCase();
         if(temp_ticker === "") {
-            setError("Please Input Valid Ticker");
+            setError("Please Enter Valid Ticker");
             setStatus("Error");
             return;
         }
-        const url = '/api/stock?ticker=' + temp_ticker
+
         if(getting_values) {
             setError("Already Calculating Values");
             return;
         }
-        
+
+        const url = '/api/stock?ticker=' + temp_ticker;
         try {
             setGettingValues(true);
             const response = await axios.get(url);
@@ -375,166 +415,84 @@ const Table = ({ setError }) => {
             const data = response.data;
             if (data.hasOwnProperty("error")) {
                 setGettingValues(false);
-                setError("Error Retrieving Company Data: " + data["error"])
                 setStatus("Error");
+
+                if (data["error"] === "Invalid Ticker") {
+                    setError("Please Enter Valid Ticker");
+                } else {
+                    setError("Error Retrieving Company Data: " + data["error"]);
+                }
+                
                 return;
             }
-            
-            setBaseTicker(ticker_input);
-            data["stock_price"] = parseFloat(data["stock_price"]).toFixed(2)
 
+            setBaseTicker(ticker_input);
             let trailing_dividend_rate = data["trailing_dividend_rate"];
             let payout_ratio = data["payout_ratio"];
 
-            // Calculating values
-            let shares_decimal = new Decimal(data["shares"]);
-            let debt_decimal = new Decimal(data["debt"]);
-            let cash_decimal = new Decimal(data["cash"]);
-            let risk_premium_decimal = new Decimal(data["risk_premium"]);
-            let risk_free_rate_decimal = new Decimal(data["risk_free_rate"]);
-            let beta_decimal = new Decimal(data["beta"]);
-            let book_value_decimal = new Decimal(data["book_value"]);
-            let eps_growth_decimal = new Decimal(data["eps_growth"]);
-            let fy0_decimal = new Decimal(data["fy0"]);
-            let fy1_decimal = new Decimal(data["fy1"]);
-            let fy2_decimal = new Decimal(data["fy2"]);
-            let stock_price_decimal = new Decimal(data["stock_price"]);
+            let shares_dec = new Decimal(data["shares"]);
+            let debt_dec = new Decimal(data["debt"]);
+            let cash_dec = new Decimal(data["cash"]);
+            let risk_premium_dec = new Decimal(data["risk_premium"]);
+            let risk_free_rate_dec = new Decimal(data["risk_free_rate"]);
+            let monthsToFYE_dec = new Decimal(data["monthsToFYE"]);
+            let beta_dec = new Decimal(data["beta"]);
+            let book_value_dec = new Decimal(data["book_value"]);
+            let eps_growth_dec = new Decimal(data["eps_growth"]);
+            let fy0_dec = new Decimal(data["fy0"]);
+            let fy1_dec = new Decimal(data["fy1"]);
+            let fy2_dec = new Decimal(data["fy2"]);
+            let stock_price_dec = new Decimal(data["stock_price"]);
 
-            if(fy1_decimal.lessThan(new Decimal(0)) || fy2_decimal.lessThanOrEqualTo(new Decimal(0))) {
+            if(fy1_dec.lessThan(0) || fy2_dec.lessThanOrEqualTo(0)) {
                 setError("Firm Cannot Be Valued: Negative Projected Earnings");
                 setGettingValues(false);
                 setStatus("Error");
                 return;
             }
 
-            let plowback_rate_decimal = new Decimal(0);
+            let plowback_rate_dec = new Decimal(0);
             if(payout_ratio === "N/A") {
-                if(trailing_dividend_rate === "N/A") {
+                if(trailing_dividend_rate === "N/A" || fy1_dec.lessThanOrEqualTo(0)) {
                     setError("Not enough information to compute payout ratio.");
                     setGettingValues(false);
                     setStatus("Error");
                     return;
-                } else if(fy1_decimal.lessThanOrEqualTo(0)) {
-                    setError("Firm Cannot Be Valued: Negative Projected Earnings");
-                    setGettingValues(false);
-                    setStatus("Error");
-                    return;
                 } else {
-                    plowback_rate_decimal = new Decimal(new Decimal(trailing_dividend_rate).div(fy0_decimal).toFixed(2));
+                    plowback_rate_dec = new Decimal(trailing_dividend_rate).div(fy0_dec).toFixed(2);
                 }
             } else {
-                plowback_rate_decimal = new Decimal(1).minus(new Decimal(payout_ratio));
-            }
-            
-            if(plowback_rate_decimal.lessThan(new Decimal(0))) {
-                plowback_rate_decimal = new Decimal(0);
-            } else if (plowback_rate_decimal.greaterThan(1)) {
-                plowback_rate_decimal = new Decimal(1);
+                plowback_rate_dec = new Decimal(1).minus(new Decimal(payout_ratio));
             }
 
-            let growth_rate_decimal = new Decimal(fy2_decimal.div(fy1_decimal).minus(new Decimal(1)).toFixed(3));
-            
-            if(growth_rate_decimal.lessThan(0.01)) {
-                growth_rate_decimal = new Decimal(0.01);
-            } else if(growth_rate_decimal.greaterThan(new Decimal(0.75))) {
-                growth_rate_decimal = new Decimal(0.75);
+            if (plowback_rate_dec.lessThan(0)) plowback_rate_dec = new Decimal(0);
+            else if (plowback_rate_dec.greaterThan(1)) plowback_rate_dec = new Decimal(1);
+
+            let growth_rate_dec = new Decimal(fy2_dec.div(fy1_dec).minus(new Decimal(1)).toFixed(3));
+            if(growth_rate_dec.lessThan(0.01)) {
+                growth_rate_dec = new Decimal(0.01);
+            } else if(growth_rate_dec.greaterThan(new Decimal(0.75))) {
+                growth_rate_dec = new Decimal(0.75);
             }
 
-            let adjusted_beta_decimal = new Decimal(1).dividedBy(3).plus(new Decimal(2).dividedBy(3).times(beta_decimal));
-            let cost_of_equity_decimal = adjusted_beta_decimal.times(risk_premium_decimal).plus(risk_free_rate_decimal);
-            
-            let monthsToFYE_decimal = new Decimal(data["monthsToFYE"]);
-            let fe0_decimal = new Decimal(monthsToFYE_decimal).div(12).times(fy0_decimal).plus(new Decimal(1).minus(monthsToFYE_decimal.div(12)).times(fy1_decimal));
-            let fe1_decimal = new Decimal(monthsToFYE_decimal).div(12).times(fy1_decimal).plus(new Decimal(1).minus(monthsToFYE_decimal.div(12)).times(fy2_decimal));
-            let fe2_decimal = new Decimal(fe1_decimal).times(new Decimal(1).plus(growth_rate_decimal));
-            
-            g[2] = growth_rate_decimal;
-            k[0] = plowback_rate_decimal;
-            k[1] = plowback_rate_decimal;
-            eps[0] = fe0_decimal;
-            eps[1] = fe1_decimal;
-            eps[2] = fe2_decimal;
-            book_value_per_share[0] = book_value_decimal;
-            
-            let temp = Decimal.exp(new Decimal(1).div(15).times(Decimal.log(eps_growth_decimal.div(growth_rate_decimal), Decimal.exp(1))));
-            for(let i = 3; i <= 16; i++) { g[i] = new Decimal(g[i-1]).times(temp); }
-            for(let i = 2; i <= 16; i++) { k[i] = new Decimal(k[i-1]).minus(plowback_rate_decimal.minus((eps_growth_decimal.dividedBy(cost_of_equity_decimal))).dividedBy(new Decimal(15))); }
-            for(let i = 3; i <= 16; i++) { eps[i] = new Decimal(eps[i-1]).times((g[i].plus(new Decimal(1)))); }
-            for(let i = 0; i <= 16; i++) { net_new_equity_investments[i] = new Decimal(k[i]).times(eps[i]); }
-            for(let i = 0; i <= 16; i++) { fcfe[i] = new Decimal(eps[i]).minus(net_new_equity_investments[i]); }
-            for(let i = 1; i <= 16; i++) { fcfe_growth[i] = new Decimal(fcfe[i]).dividedBy(fcfe[i-1]).minus(new Decimal(1)); }
-            for(let i = 1; i <= 16; i++) { book_value_per_share[i] = new Decimal(book_value_per_share[i-1]).plus(eps[i]).minus(fcfe[i]); }
-            for(let i = 1; i <= 16; i++) { roe[i] = new Decimal(eps[i]).dividedBy(book_value_per_share[i-1]); }
-            for(let i = 1; i <= 16; i++) { roi[i] = new Decimal(eps[i]).minus(eps[i-1]).dividedBy(net_new_equity_investments[i-1]); }
-            for(let i = 1; i <= 16; i++) { roe_less_re[i] = new Decimal(roe[i]).minus(cost_of_equity_decimal); }
-            for(let i = 1; i <= 16; i++) { ri[i] = new Decimal(roe_less_re[i]).times(book_value_per_share[i-1]); }
+            const adjusted_beta_dec = new Decimal(1).div(3).plus(new Decimal(2).div(3).times(beta_dec));
+            const cost_of_equity_dec = adjusted_beta_dec.times(risk_premium_dec).plus(risk_free_rate_dec);
 
-            // Discounted Free Cash Flow Valuation
-            let fcfe_pv = new Decimal(0);
-            for(let i = 1; i <= 16; i++) { fcfe_pv = fcfe_pv.plus(fcfe[i].div(Decimal.pow(new Decimal(1).plus(cost_of_equity_decimal), i))); }
-            let continuing_value_cash_flow_based = new Decimal(1)
-                .div(Decimal.pow(new Decimal(1).plus(cost_of_equity_decimal), 15))
-                .times(fcfe[16].div(cost_of_equity_decimal.minus(eps_growth_decimal)));
-            let intrinsic_value_decimal = fcfe_pv.plus(continuing_value_cash_flow_based);
-            let pv_ratio_decimal = stock_price_decimal.div(intrinsic_value_decimal);
+            let fe0_dec = monthsToFYE_dec.div(12).times(fy0_dec).plus(new Decimal(1).minus(monthsToFYE_dec.div(12)).times(fy1_dec));
+            let fe1_dec = monthsToFYE_dec.div(12).times(fy1_dec).plus(new Decimal(1).minus(monthsToFYE_dec.div(12)).times(fy2_dec));
+            let fe2_dec = fe1_dec.times(growth_rate_dec.plus(1));
 
-            // Value of assets in place & PVGO
-            let assets_in_place_decimal = new Decimal(fe1_decimal).dividedBy(cost_of_equity_decimal);
-            let pvgo_decimal = intrinsic_value_decimal.minus(assets_in_place_decimal);
-
-            // Firm Valuation
-            let value_of_equity_decimal = intrinsic_value_decimal.times(shares_decimal);
-            let firm_value_decimal = value_of_equity_decimal.plus(debt_decimal);
-            let enterprise_value_decimal = firm_value_decimal.minus(cash_decimal);
-            
-            let cost_of_equity_implied = new Decimal(0.0001);
-            while(true) {
-                g[2] = growth_rate_decimal;
-                k[0] = plowback_rate_decimal;
-                k[1] = plowback_rate_decimal;
-                eps[0] = fe0_decimal;
-                eps[1] = fe1_decimal;
-                eps[2] = fe2_decimal;
-                book_value_per_share[0] = book_value_decimal;
-                
-                let temp = Decimal.exp(new Decimal(1).div(15).times(Decimal.log(eps_growth_decimal.div(growth_rate_decimal), Decimal.exp(1))));
-                for(let i = 3; i <= 16; i++) { g[i] = new Decimal(g[i-1]).times(temp); }
-                for(let i = 2; i <= 16; i++) { k[i] = new Decimal(k[i-1]).minus(plowback_rate_decimal.minus((eps_growth_decimal.dividedBy(cost_of_equity_implied))).dividedBy(new Decimal(15))); }
-                for(let i = 3; i <= 16; i++) { eps[i] = new Decimal(eps[i-1]).times((g[i].plus(new Decimal(1)))); }
-                for(let i = 0; i <= 16; i++) { net_new_equity_investments[i] = new Decimal(k[i]).times(eps[i]); }
-                for(let i = 0; i <= 16; i++) { fcfe[i] = new Decimal(eps[i]).minus(net_new_equity_investments[i]); }
-                for(let i = 1; i <= 16; i++) { fcfe_growth[i] = new Decimal(fcfe[i]).dividedBy(fcfe[i-1]).minus(new Decimal(1)); }
-                for(let i = 1; i <= 16; i++) { book_value_per_share[i] = new Decimal(book_value_per_share[i-1]).plus(eps[i]).minus(fcfe[i]); }
-                for(let i = 1; i <= 16; i++) { roe[i] = new Decimal(eps[i]).dividedBy(book_value_per_share[i-1]); }
-                for(let i = 1; i <= 16; i++) { roi[i] = new Decimal(eps[i]).minus(eps[i-1]).dividedBy(net_new_equity_investments[i-1]); }
-                for(let i = 1; i <= 16; i++) { roe_less_re[i] = new Decimal(roe[i]).minus(cost_of_equity_implied); }
-                for(let i = 1; i <= 16; i++) { ri[i] = new Decimal(roe_less_re[i]).times(book_value_per_share[i-1]); }
-
-                // Discounted Free Cash Flow Valuation
-                let fcfe_pv = new Decimal(0);
-                for(let i = 1; i <= 16; i++) { fcfe_pv = fcfe_pv.plus(fcfe[i].div(Decimal.pow(new Decimal(1).plus(cost_of_equity_implied), i))); }
-                let continuing_value_cash_flow_based = new Decimal(1)
-                    .div(Decimal.pow(new Decimal(1).plus(cost_of_equity_implied), 15))
-                    .times(fcfe[16].div(cost_of_equity_implied.minus(eps_growth_decimal)));
-                let intrinsic_value_implied = fcfe_pv.plus(continuing_value_cash_flow_based);
-
-                if(intrinsic_value_implied.lessThanOrEqualTo(stock_price_decimal)) {
-                    break;
-                }
-
-                cost_of_equity_implied = cost_of_equity_implied.add(0.0001);
-            }
-            
-            setFY1(data["fy1"]);
-            setFY2(data["fy2"]);
-            setRiskPremium(data["risk_premium"]*100);
-            setStockPrice(data["stock_price"]);
-            setBeta(data["beta"]);
-            setMonthsToFYE(data["monthsToFYE"]);
-            setBookValue(data["book_value"]);
-            setFy0(data["fy0"]);
-            setRiskFreeRate(data["risk_free_rate"]);
-            setEpsGrowth(data["eps_growth"]);
+            // Set initial states
+            setFy0(fy0_dec.toFixed(2));
+            setFY1(fy1_dec.toFixed(2));
+            setFY2(fy2_dec.toFixed(2));
+            setRiskPremium(risk_premium_dec.toNumber()*100);
+            setStockPrice(stock_price_dec.toFixed(2));
+            setBeta(beta_dec.toFixed(2));
+            setMonthsToFYE(monthsToFYE_dec.toFixed(0));
+            setBookValue(book_value_dec.toFixed(2));
+            setRiskFreeRate(risk_free_rate_dec.toFixed(2));
+            setEpsGrowth(eps_growth_dec.toFixed(2));
 
             const sharesData = calculateUnits(parseInt(data["shares"]), 0);
             setShares(sharesData.value);
@@ -546,53 +504,66 @@ const Table = ({ setError }) => {
             setCash(cashData.value);
             setCashUnit(cashData.unit);
 
-            setAdjustedBeta(parseFloat(adjusted_beta_decimal).toFixed(2));
-            setGrowthRate(parseFloat(growth_rate_decimal.times(100)).toFixed(1));
-            growth_rate = growth_rate_decimal.toNumber().toFixed(3);
-            setCostOfEquity(parseFloat(cost_of_equity_decimal));
-            setImpliedCostOfEquity(parseFloat(cost_of_equity_implied));
-            setFe0(parseFloat(fe0_decimal).toFixed(2));
-            setFe1(parseFloat(fe1_decimal).toFixed(2));
-            setFe2(parseFloat(fe2_decimal).toFixed(2));
-            setIntrinsicValue(parseFloat(intrinsic_value_decimal).toFixed(2));
-            setProfitVolumeRatio(parseFloat(pv_ratio_decimal).toFixed(2));
-            setAssetsInPlace(parseFloat(assets_in_place_decimal).toFixed(2));
-            setPVGO(parseFloat(pvgo_decimal).toFixed(2));
-            setPlowbackRate(plowback_rate_decimal);
+            // Prepare parameters for final calculation
+            const valuationParams = {
+                shares_dec: shares_dec, debt_dec: debt_dec, cash_dec: cash_dec,
+                rfr_dec: risk_free_rate_dec, beta_dec: beta_dec, book_value_dec: book_value_dec,
+                plowback_rate_dec: plowback_rate_dec, fy0_dec: fy0_dec, fy1_dec: fy1_dec,
+                fy2_dec: fy2_dec, eps_growth_dec: eps_growth_dec, monthsToFYE_dec: monthsToFYE_dec,
+                stock_price_dec: stock_price_dec, risk_premium_dec: risk_premium_dec,
+                growth_rate_dec: growth_rate_dec
+            };
 
-            const equityValueData = calculateUnits(value_of_equity_decimal, 2);
+            const valuation = computeIntrinsicValue(valuationParams);
+
+            setAdjustedBeta(parseFloat(adjusted_beta_dec).toFixed(2));
+            setGrowthRate(parseFloat(valuation.growth_rate_dec.times(100)).toFixed(1));
+            setCostOfEquity(parseFloat(cost_of_equity_dec));
+            setImpliedCostOfEquity(parseFloat(valuation.cost_of_equity_implied));
+            setFe0(parseFloat(fe0_dec).toFixed(2));
+            setFe1(parseFloat(fe1_dec).toFixed(2));
+            setFe2(parseFloat(fe2_dec).toFixed(2));
+            setIntrinsicValue(parseFloat(valuation.intrinsic_value_dec).toFixed(2));
+            setProfitVolumeRatio(parseFloat(valuation.pv_ratio_dec).toFixed(2));
+            setAssetsInPlace(parseFloat(valuation.assets_in_place_dec).toFixed(2));
+            setPVGO(parseFloat(valuation.pvgo_dec).toFixed(2));
+            setPlowbackRate(plowback_rate_dec.toNumber());
+
+            const equityValueData = calculateUnits(valuation.value_of_equity_dec, 2);
             setValueOfEquity(equityValueData.value);
             setValueOfEquityUnit(equityValueData.unit);
-            const firmValueData = calculateUnits(firm_value_decimal, 2);
+
+            const firmValueData = calculateUnits(valuation.firm_value_dec, 2);
             setFirmValue(firmValueData.value);
             setFirmValueUnit(firmValueData.unit);
-            const enterpriseValueData = calculateUnits(enterprise_value_decimal, 2);
+
+            const enterpriseValueData = calculateUnits(valuation.enterprise_value_dec, 2);
             setEnterpriseValue(enterpriseValueData.value);
             setEnterpriseValueUnit(enterpriseValueData.unit);
 
+            // Set alt values for restore
             setAltFy1(data["fy1"]);
             setAltFy2(data["fy2"]);
-            setAltGrowthRate(parseFloat(growth_rate_decimal.times(100)).toFixed(1));
-            alt_growth_rate = growth_rate_decimal.toNumber().toFixed(3);
-            setAltPlowbackRate(parseFloat(plowback_rate_decimal));
+            setAltGrowthRate(parseFloat(valuation.growth_rate_dec.times(100)).toFixed(1));
+            setAltPlowbackRate(parseFloat(plowback_rate_dec));
             setAltRiskPremium(data["risk_premium"]*100);
             setAltFy0(data["fy0"]);
             setAltMonthsToFYE(parseInt(data["monthsToFYE"]));
-            setAltFe0(parseFloat(fe0_decimal).toFixed(2));
-            setAltFe1(parseFloat(fe1_decimal).toFixed(2));
-            setAltFe2(parseFloat(fe2_decimal).toFixed(2));
+            setAltFe0(parseFloat(fe0_dec).toFixed(2));
+            setAltFe1(parseFloat(fe1_dec).toFixed(2));
+            setAltFe2(parseFloat(fe2_dec).toFixed(2));
             setAltEpsGrowth(data["eps_growth"]);
             setAltBookValue(data["book_value"]);
             setAltStockPrice(data["stock_price"]);
             setAltRiskFreeRate(data["risk_free_rate"]);
             setAltBeta(data["beta"]);
-            setAltAdjustedBeta(parseFloat(adjusted_beta_decimal).toFixed(2));
-            setAltCostOfEquity(parseFloat(cost_of_equity_decimal));
-            setAltImpliedCostOfEquity(parseFloat(cost_of_equity_implied));
-            setAltIntrinsicValue(parseFloat(parseFloat(intrinsic_value_decimal)).toFixed(2));
-            setAltProfitVolumeRatio(parseFloat(parseFloat(pv_ratio_decimal)).toFixed(2));
-            setAltAssetsInPlace(parseFloat(assets_in_place_decimal).toFixed(2));
-            setAltPVGO(parseFloat(pvgo_decimal).toFixed(2));
+            setAltAdjustedBeta(parseFloat(adjusted_beta_dec).toFixed(2));
+            setAltCostOfEquity(parseFloat(cost_of_equity_dec));
+            setAltImpliedCostOfEquity(parseFloat(valuation.cost_of_equity_implied));
+            setAltIntrinsicValue(parseFloat(valuation.intrinsic_value_dec).toFixed(2));
+            setAltProfitVolumeRatio(parseFloat(valuation.pv_ratio_dec).toFixed(2));
+            setAltAssetsInPlace(parseFloat(valuation.assets_in_place_dec).toFixed(2));
+            setAltPVGO(parseFloat(valuation.pvgo_dec).toFixed(2));
 
             setAltShares(sharesData.value);
             setAltSharesUnit(sharesData.unit);
@@ -610,7 +581,6 @@ const Table = ({ setError }) => {
             setGettingValues(false);
             setStatus("Done!");
             setError("");
-            
         } catch(error) {
             setGettingValues(false);
             setStatus("Error");
@@ -621,36 +591,42 @@ const Table = ({ setError }) => {
             } else if(error.response && error.response.status === 500) {
                 setError("Unknown Error retrieving data.");
             } else {
-                setError("Unkown Error: " + error);
+                setError("Unknown Error: " + error);
                 console.log(error);
             }
         }
     };
 
-    const calculateUnits = (value, decimal_precision) => {
-        const units = ['', 'thousands', 'millions', 'billions', 'trillions', 'quadrillions', 'quintillions', 'sextillions'];
-        const index = Math.floor(Math.log10(Math.abs(value)) / 3);
-        const scaledValue = (value / Math.pow(10, index * 3));
-        return {
-            value: scaledValue.toFixed(decimal_precision),
-            unit: units[index]
-        };
-    };
+    const run = () => {
+        // Check if ticker has been changed
+        if(ticker_input === ticker && getting_values === false && ticker !== "") {
+            if (!validateInputs()) return;
 
-    const reverseCalculateUnits = (scaledValue, unit) => {
-        const units = ['', 'thousands', 'millions', 'billions', 'trillions', 'quadrillions', 'quintillions', 'sextillions'];
-    
-        // Find the index of the given unit
-        const index = units.indexOf(unit);
-    
-        if (index === -1) {
-            throw new Error('Invalid unit provided.');
+            fy1 = FY1_input;
+            fy2 = FY2_input;
+            plowback_rate = plowback_rate_input;
+            risk_premium = risk_premium_input/100;
+
+            // Check if growth rate was changed
+            if (growth_rate !== growth_rate_input/100) {
+                growth_rate = growth_rate_input/100;
+            } else {
+                let growth_rate_dec = new Decimal(fy2).div(fy1).minus(1);
+                if(growth_rate_dec.lessThan(0.01)) {
+                    growth_rate_dec = new Decimal(0.01);
+                } else if(growth_rate_dec.greaterThan(new Decimal(0.75))) {
+                    growth_rate_dec = new Decimal(0.75);
+                }
+                growth_rate = growth_rate_dec.toFixed(2)
+            }
+
+            calculateValues();
+
+        // Compute values for new stock
+        } else {
+            setStatus("Retrieving Data...");
+            getValues();
         }
-    
-        // Calculate the original value using the formula: originalValue = scaledValue * 10^(index * 3)
-        const originalValue = scaledValue * Math.pow(10, index * 3);
-    
-        return originalValue;
     };
 
     return (
@@ -666,9 +642,6 @@ const Table = ({ setError }) => {
                 </div>
             </div>
             <div className={`instructions ${showInstructions ? "show" : ""}`}>
-                <p>
-                    Instructions:
-                </p>
                 <ul>
                     <li>Type in a Ticker for a US publicly traded company in the Ticker box.</li>
                     <li>Click the "Calculate" button to compute valuations using Yahoo Finance data.</li>
@@ -786,7 +759,7 @@ const Table = ({ setError }) => {
                         <tr>
                             <td>
                                 Risk-free rate
-                                <span className="tooltip" data-tooltip="Yield on 30-year U.S. govt. bond"></span>
+                                <span className="tooltip" data-tooltip="Yield on 30-year US govt. bond"></span>
                             </td>
                             <td>
                                 <div class="percentage-cell-content">
@@ -810,7 +783,7 @@ const Table = ({ setError }) => {
                         </tr>
                         <tr>
                             <td>
-                                Risk premium on U.S. market
+                                Risk premium on US market
                                 <span className="tooltip" data-tooltip="rm - rf"></span>
                             </td>
                             <td className="input-cell-percentage">
@@ -832,7 +805,7 @@ const Table = ({ setError }) => {
                         <tr>
                             <td>
                                 Implied Cost of Equity
-                                <span className="tooltip" data-tooltip="This is the internal rate of return (IRR) that equates the intrinsic value of a stock to its price."></span>
+                                <span className="tooltip" data-tooltip="The internal rate of return (IRR) that equates the intrinsic value to its price."></span>
                             </td>
                             <td>
                                 <div class="percentage-cell-content">
